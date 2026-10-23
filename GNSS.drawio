@@ -1,0 +1,31 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="2pGkeY-nug2QQQ4rQQu5">
+    <mxGraphModel dx="1220" dy="196" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Iofi469D_7naGS5bIdgV-1" parent="1" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;rounded=0;" value="Requirements:&lt;div&gt;State estimation&lt;/div&gt;&lt;div&gt;2 x PWM ports&lt;/div&gt;&lt;div&gt;2 x 8.4v Servo ports&lt;/div&gt;&lt;div&gt;Radio&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="160" x="10" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="State estimation:&lt;div&gt;GNSS&lt;/div&gt;&lt;div&gt;6 axis IMU: IIM-20670 +&amp;nbsp;ICM-42688-P&lt;/div&gt;&lt;div&gt;Barometer:&amp;nbsp;BMP390 + DPS368&lt;/div&gt;&lt;div&gt;Magnetometer: RM3100&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="155" width="306" x="310" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="Radio:&lt;div&gt;CC1101&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="180" x="-100" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-5" parent="1" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;rounded=0;" value="Capability aims:&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Single band reciever&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;GPS and Galileo constellations&lt;/span&gt;&lt;/div&gt;&lt;div&gt;2 x 8.4v Servo ports&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="190" x="180" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="RF Frontend:&lt;div&gt;LNA:&amp;nbsp;BGA123N6&lt;/div&gt;&lt;div&gt;SAW filter:&amp;nbsp;SF14-1575F5UUP1&lt;/div&gt;&lt;div&gt;Mixer:&amp;nbsp;ADE-11X+&lt;/div&gt;&lt;div&gt;LO: potential roadblock as expensive&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="180" x="596" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-7" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="MCU" vertex="1">
+          <mxGeometry height="170" width="170" x="140" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Iofi469D_7naGS5bIdgV-8" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="FPGA" vertex="1">
+          <mxGeometry height="170" width="170" x="378" y="160" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
