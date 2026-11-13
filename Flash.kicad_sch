@@ -1327,7 +1327,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "17d4367d-e405-4eb6-9e2f-fab50fb526bd")
-		(property "Reference" "#PWR0808"
+		(property "Reference" "#PWR0608"
 			(at 180.34 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -1387,7 +1387,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0808")
+					(reference "#PWR0608")
 					(unit 1)
 				)
 			)
@@ -1404,7 +1404,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "25bba163-4388-417f-ba6d-65c13af448d7")
-		(property "Reference" "R801"
+		(property "Reference" "R601"
 			(at 118.872 83.82 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1457,6 +1457,28 @@
 				)
 			)
 		)
+		(property "CREATOR" ""
+			(at 123.19 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "VERIFIER" ""
+			(at 123.19 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "28655f49-7e23-4d74-b577-c00ea40101bb")
 		)
@@ -1466,7 +1488,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "R801")
+					(reference "R601")
 					(unit 1)
 				)
 			)
@@ -1483,7 +1505,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "269af568-5fbc-49a2-9ebe-34475d20af24")
-		(property "Reference" "#PWR0807"
+		(property "Reference" "#PWR0607"
 			(at 176.53 95.25 0)
 			(hide yes)
 			(show_name no)
@@ -1544,7 +1566,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0807")
+					(reference "#PWR0607")
 					(unit 1)
 				)
 			)
@@ -1562,7 +1584,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3e65420f-2be7-4e47-a99e-fdda8e1a02b1")
-		(property "Reference" "#PWR0806"
+		(property "Reference" "#PWR0606"
 			(at 168.91 85.09 0)
 			(hide yes)
 			(show_name no)
@@ -1622,7 +1644,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0806")
+					(reference "#PWR0606")
 					(unit 1)
 				)
 			)
@@ -1639,7 +1661,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "4f5f2bbe-b64c-4153-b788-f7fe71ddc1b6")
-		(property "Reference" "#PWR0805"
+		(property "Reference" "#PWR0605"
 			(at 149.86 90.17 0)
 			(hide yes)
 			(show_name no)
@@ -1700,7 +1722,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0805")
+					(reference "#PWR0605")
 					(unit 1)
 				)
 			)
@@ -1717,7 +1739,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "54548f04-1640-4101-8ff3-02487011e582")
-		(property "Reference" "#PWR0804"
+		(property "Reference" "#PWR0604"
 			(at 146.05 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -1778,7 +1800,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0804")
+					(reference "#PWR0604")
 					(unit 1)
 				)
 			)
@@ -1796,7 +1818,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "69771cf8-0fa1-478f-9c87-07ad963a3c50")
-		(property "Reference" "#PWR0802"
+		(property "Reference" "#PWR0602"
 			(at 123.19 83.82 0)
 			(hide yes)
 			(show_name no)
@@ -1856,7 +1878,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0802")
+					(reference "#PWR0602")
 					(unit 1)
 				)
 			)
@@ -1873,7 +1895,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "9a553eff-28f0-4196-bc44-709f8a6fe402")
-		(property "Reference" "U801"
+		(property "Reference" "U601"
 			(at 135.89 76.962 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -1961,6 +1983,28 @@
 				)
 			)
 		)
+		(property "CREATOR" ""
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "VERIFIER" ""
+			(at 146.05 93.98 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "7"
 			(uuid "7ee9680f-2510-40b8-88da-713556ffcb58")
 		)
@@ -1994,7 +2038,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "U801")
+					(reference "U601")
 					(unit 1)
 				)
 			)
@@ -2012,7 +2056,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cb34cab0-3d84-494b-8632-562f91a0d445")
-		(property "Reference" "#PWR0801"
+		(property "Reference" "#PWR0601"
 			(at 102.87 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -2072,7 +2116,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0801")
+					(reference "#PWR0601")
 					(unit 1)
 				)
 			)
@@ -2089,7 +2133,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "d73e36e9-ff99-4321-ab83-3ee829df57cf")
-		(property "Reference" "C801"
+		(property "Reference" "C601"
 			(at 172.72 80.518 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2142,6 +2186,28 @@
 				)
 			)
 		)
+		(property "CREATOR" ""
+			(at 172.72 86.36 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "VERIFIER" ""
+			(at 172.72 86.36 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "d96b5ac3-7d2a-43a3-8c2f-daa973d841d3")
 		)
@@ -2151,7 +2217,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "C801")
+					(reference "C601")
 					(unit 1)
 				)
 			)
@@ -2168,7 +2234,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "f3d4dec4-c80f-40f6-b548-0ae953535184")
-		(property "Reference" "#PWR0803"
+		(property "Reference" "#PWR0603"
 			(at 123.19 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -2229,7 +2295,7 @@
 		(instances
 			(project "GNSS"
 				(path "/25cf923b-638a-4efe-be9a-1b45b8ec7610/14013b3d-b4c9-4e9d-b1d9-031a48624b3f"
-					(reference "#PWR0803")
+					(reference "#PWR0603")
 					(unit 1)
 				)
 			)
