@@ -1,29 +1,18 @@
-//! Minimal bring-up firmware for the GNSS board (STM32H743ZIT6).
-//!
-//! Does only three things:
-//! 1. Holds the FPGA rail enables (PF0 -> +1V1, PF1 -> +2V5) low. R201/R202 pull
-//!    them high, so without this the FPGA rails turn on by themselves.
-//! 2. USB CDC-ACM serial port (/dev/ttyACM0) that prints die temperature and VDDA
-//!    once a second while a terminal has the port open.
-//! 3. Remote reboot into the ROM USB DFU bootloader: send the line `dfu` (followed
-//!    by Enter / `\r` / `\n`). No BOOT button or tweezers needed. `flash.sh` does
-//!    this automatically.
-//!
-//! The previous full bring-up firmware (NOR flash tests, FPGA status, crash log)
-//! is kept in `old/main_full.rs` and is not compiled.
-
 #![no_std]
 #![no_main]
 
 use core::fmt::Write as _;
 
 use embassy_executor::Spawner;
+use core::cell::Cell;
+
 use embassy_futures::join::join3;
+use embassy_futures::yield_now;
 use embassy_stm32::adc::{Adc, SampleTime, Temperature, VrefInt};
-use embassy_stm32::gpio::{Level, Output, Speed};
+use embassy_stm32::gpio::{Input, Level, Output, Pull, Speed};
 use embassy_stm32::usb::{self, Driver};
 use embassy_stm32::{bind_interrupts, peripherals, Config};
-use embassy_time::Timer;
+use embassy_time::{Instant, Timer};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, Sender, State};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::Builder;
@@ -85,10 +74,6 @@ async fn main(_spawner: Spawner) {
     }
     let p = embassy_stm32::init(config);
 
-    // FPGA rails off (the enables have pull-ups, so they must be driven low).
-    let _en_1v1 = Output::new(p.PF0, Level::Low, Speed::Low); // U202 EN -> +1V1
-    let _en_2v5 = Output::new(p.PF1, Level::Low, Speed::Low); // U203 EN -> +2V5
-
     // ---- USB CDC-ACM ----
     let mut ep_out_buffer = [0u8; 256];
     let mut usb_cfg = usb::Config::default();
@@ -121,7 +106,30 @@ async fn main(_spawner: Spawner) {
     let adc = Adc::new(p.ADC3);
     let mut monitor = Monitor { vref: adc.enable_vrefint(), temp: adc.enable_temperature(), adc };
 
+    // ---- FPGA config / status pins ----
+    // The NOR flash bus pins (PE11..PE15) are plain inputs, so the FPGA can drive
+    // the flash freely and the MCU just watches. PROGRAMN is held high (released);
+    // CFG[2:0] = 010 selects Master SPI (boot from the NOR flash).
+    let mut fpga = FpgaPins {
+        programn: Output::new(p.PB13, Level::High, Speed::Low),
+        _initn: Input::new(p.PB12, Pull::None), // 4.7k pull-up R402
+        _done: Input::new(p.PB14, Pull::None),  // 4.7k pull-up R403
+        _cfg: [
+            Output::new(p.PB15, Level::Low, Speed::Low),  // CFG0 = 0
+            Output::new(p.PD8, Level::High, Speed::Low),  // CFG1 = 1
+            Output::new(p.PD9, Level::Low, Speed::Low),   // CFG2 = 0
+        ],
+        _bus: [
+            Input::new(p.PE11, Pull::None), // spare (CS bodge on the old board)
+            Input::new(p.PE12, Pull::None), // CCLK / SCK
+            Input::new(p.PE13, Pull::None), // flash SO
+            Input::new(p.PE14, Pull::None), // flash SI (FPGA MOSI)
+            Input::new(p.PE15, Pull::None), // flash CS#
+        ],
+    };
+
     let (mut tx, mut rx) = class.split();
+    let command = Cell::new(Cmd::None);
 
     // Commands arrive as text lines. Only the exact line "dfu" does anything, so
     // stray host traffic (e.g. ModemManager's AT probes) is ignored.
@@ -133,9 +141,12 @@ async fn main(_spawner: Spawner) {
             while let Ok(n) = rx.read_packet(&mut buf).await {
                 for &b in &buf[..n] {
                     if b == b'\r' || b == b'\n' {
-                        if line.trim().eq_ignore_ascii_case("dfu") {
+                        let cmd = line.trim();
+                        if cmd.eq_ignore_ascii_case("dfu") {
                             Timer::after_millis(20).await;
                             reboot_to_dfu();
+                        } else if cmd.eq_ignore_ascii_case("fpga") {
+                            command.set(Cmd::FpgaCheck);
                         }
                         line.clear();
                     } else if line.push(b as char).is_err() {
@@ -149,27 +160,155 @@ async fn main(_spawner: Spawner) {
     let tx_fut = async {
         loop {
             tx.wait_connection().await;
-            let _ = log_temperature(&mut tx, &mut monitor).await;
+            let _ = session(&mut tx, &mut monitor, &mut fpga, &command).await;
         }
     };
 
     join3(usb.run(), rx_fut, tx_fut).await;
 }
 
-/// Print temperature once a second until the terminal closes the port.
-async fn log_temperature<'d, D: embassy_usb::driver::Driver<'d>>(
+#[derive(Clone, Copy, PartialEq)]
+enum Cmd {
+    None,
+    FpgaCheck,
+}
+
+struct FpgaPins<'d> {
+    programn: Output<'d>,
+    _initn: Input<'d>,
+    _done: Input<'d>,
+    _cfg: [Output<'d>; 3],
+    _bus: [Input<'d>; 5],
+}
+
+// Raw input-register bits, read directly for fast sampling.
+const INITN: u32 = 1 << 12; // PB12
+const DONE: u32 = 1 << 14; // PB14
+const CCLK: u32 = 1 << 12; // PE12
+const MOSI: u32 = 1 << 14; // PE14
+const CS: u32 = 1 << 15; // PE15
+
+fn port_b() -> u32 {
+    embassy_stm32::pac::GPIOB.idr().read().0
+}
+fn port_e() -> u32 {
+    embassy_stm32::pac::GPIOE.idr().read().0
+}
+
+/// Print temperature once a second until the terminal closes the port, and run
+/// commands as they arrive.
+async fn session<'d, D: embassy_usb::driver::Driver<'d>>(
     tx: &mut Sender<'d, D>,
     monitor: &mut Monitor<'_>,
+    fpga: &mut FpgaPins<'_>,
+    command: &Cell<Cmd>,
 ) -> Result<(), EndpointError> {
     Timer::after_millis(100).await; // let the host terminal settle after raising DTR
-    write_str(tx, "GNSS bring-up (minimal). Send \"dfu\" + Enter to reboot into the DFU bootloader.\r\n").await?;
+    write_str(tx, "GNSS bring-up (minimal). Commands: \"fpga\" = FPGA health check, \"dfu\" = reboot into DFU.\r\n").await?;
+    let mut ticks = 0u32;
     while tx.dtr() {
-        let (t, vdda) = monitor.read();
-        let mut m: String<64> = String::new();
-        let _ = write!(m, "MCU temp {:.1} C, VDDA {}.{:03} V\r\n", t, vdda / 1000, vdda % 1000);
-        write_str(tx, &m).await?;
-        Timer::after_secs(1).await;
+        if command.replace(Cmd::None) == Cmd::FpgaCheck {
+            fpga_check(tx, fpga).await?;
+        }
+        if ticks % 10 == 0 {
+            let (t, vdda) = monitor.read();
+            let mut m: String<64> = String::new();
+            let _ = write!(m, "MCU temp {:.1} C, VDDA {}.{:03} V\r\n", t, vdda / 1000, vdda % 1000);
+            write_str(tx, &m).await?;
+        }
+        ticks = ticks.wrapping_add(1);
+        Timer::after_millis(100).await;
     }
+    Ok(())
+}
+
+/// Restart the ECP5's configuration and report what it does.
+///
+/// Healthy, flash without a bitstream: INITN low while PROGRAMN is low, INITN
+/// goes high within a few ms of release, CCLK toggles and CS# goes low (it is
+/// reading the flash), then INITN drops again (no valid bitstream) and DONE
+/// stays low. With a valid bitstream DONE goes high instead.
+async fn fpga_check<'d, D: embassy_usb::driver::Driver<'d>>(
+    tx: &mut Sender<'d, D>,
+    fpga: &mut FpgaPins<'_>,
+) -> Result<(), EndpointError> {
+    let mut m: String<128> = String::new();
+    macro_rules! say {
+        ($($arg:tt)*) => {{
+            m.clear();
+            let _ = write!(m, $($arg)*);
+            let _ = m.push_str("\r\n");
+            write_str(tx, &m).await?;
+        }};
+    }
+    let bit = |v: u32, b: u32| (v & b != 0) as u8;
+
+    let b = port_b();
+    say!("FPGA check (CFG = 010 Master SPI)");
+    say!("  before: INITN={} DONE={}", bit(b, INITN), bit(b, DONE));
+
+    // Hold PROGRAMN low: the FPGA resets and should pull INITN low.
+    fpga.programn.set_low();
+    Timer::after_millis(2).await;
+    let b = port_b();
+    say!("  PROGRAMN low: INITN={} (expect 0) DONE={} (expect 0)", bit(b, INITN), bit(b, DONE));
+
+    // Release and watch for 2 s.
+    fpga.programn.set_high();
+    let t0 = Instant::now();
+    let mut initn_high_us: Option<u64> = None;
+    let mut initn_fell_us: Option<u64> = None;
+    let mut done_high_us: Option<u64> = None;
+    let (mut cclk_edges, mut mosi_edges, mut cs_low, mut samples) = (0u32, 0u32, 0u32, 0u32);
+    let mut last_e = port_e();
+    let mut last_initn = port_b() & INITN != 0;
+    while t0.elapsed().as_millis() < 2000 {
+        for _ in 0..2000 {
+            let e = port_e();
+            let b = port_b();
+            samples += 1;
+            cclk_edges += ((e ^ last_e) & CCLK != 0) as u32;
+            mosi_edges += ((e ^ last_e) & MOSI != 0) as u32;
+            cs_low += (e & CS == 0) as u32;
+            last_e = e;
+            let initn = b & INITN != 0;
+            let us = t0.elapsed().as_micros();
+            if initn && !last_initn && initn_high_us.is_none() {
+                initn_high_us = Some(us);
+            }
+            if !initn && last_initn && initn_high_us.is_some() && initn_fell_us.is_none() {
+                initn_fell_us = Some(us);
+            }
+            if b & DONE != 0 && done_high_us.is_none() {
+                done_high_us = Some(us);
+            }
+            last_initn = initn;
+        }
+        yield_now().await; // keep USB serviced
+    }
+    let b = port_b();
+
+    match initn_high_us {
+        Some(us) => say!("  INITN went high {} us after release: FPGA reset OK", us),
+        None => say!("  INITN never went high (now {}): FPGA not coming out of reset", bit(b, INITN)),
+    }
+    say!(
+        "  flash bus over 2 s: CCLK edges {}, MOSI edges {}, CS# low in {}/{} samples",
+        cclk_edges, mosi_edges, cs_low, samples
+    );
+    if cclk_edges > 0 && cs_low > 0 {
+        say!("  -> FPGA is clocking the flash: it is trying to load a bitstream");
+    } else {
+        say!("  -> no flash activity seen (check CFG pins / PROGRAMN / INITN)");
+    }
+    if let Some(us) = initn_fell_us {
+        say!("  INITN fell again at {} ms: configuration error (expected with no bitstream)", us / 1000);
+    }
+    match done_high_us {
+        Some(us) => say!("  DONE went high at {} ms: FPGA CONFIGURED", us / 1000),
+        None => say!("  DONE stayed low: not configured (expected with a blank flash)"),
+    }
+    say!("  after: INITN={} DONE={}", bit(b, INITN), bit(b, DONE));
     Ok(())
 }
 
