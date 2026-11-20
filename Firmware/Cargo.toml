@@ -1,0 +1,20 @@
+[package]
+name = "gnss-fw"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+embassy-stm32 = { version = "0.6.0", features = ["stm32h743zi", "time-driver-any", "memory-x", "exti", "unstable-pac"] }
+embassy-executor = { version = "0.10.0", features = ["platform-cortex-m", "executor-thread"] }
+embassy-time = "0.5.1"
+embassy-usb = "0.6.0"
+embassy-futures = "*"
+cortex-m = { version = "0.7", features = ["critical-section-single-core", "inline-asm"] }
+cortex-m-rt = "0.7"
+heapless = "0.8"
+
+[profile.release]
+debug = 2
+lto = true
+opt-level = "s"
+codegen-units = 1

@@ -5393,7 +5393,7 @@
 				)
 			)
 		)
-		(property "Value" "200Ω"
+		(property "Value" "330Ω"
 			(at 240.03 92.202 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7741,7 +7741,7 @@
 				)
 			)
 		)
-		(property "Value" "1kΩ"
+		(property "Value" "2.2kΩ"
 			(at 240.03 102.108 90)
 			(show_name no)
 			(do_not_autoplace no)

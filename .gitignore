@@ -10,3 +10,6 @@ fp-info-cache
 # KiCad automatic backups
 *-backups/
 production/backups/
+
+# KiCad local history (its own git repo)
+.history/
