@@ -3,6 +3,11 @@ name = "gnss-fw"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "gnss-fw"
+test = false
+bench = false
+
 [dependencies]
 embassy-stm32 = { version = "0.6.0", features = ["stm32h743zi", "time-driver-any", "memory-x", "exti", "unstable-pac"] }
 embassy-executor = { version = "0.10.0", features = ["platform-cortex-m", "executor-thread"] }
@@ -12,6 +17,7 @@ embassy-futures = "*"
 cortex-m = { version = "0.7", features = ["critical-section-single-core", "inline-asm"] }
 cortex-m-rt = "0.7"
 heapless = "0.8"
+static_cell = "2"
 
 [profile.release]
 debug = 2

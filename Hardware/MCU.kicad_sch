@@ -6197,7 +6197,7 @@
 		(uuid "a2d541d6-b31b-452f-b433-49b55cf87fd1")
 	)
 	(hierarchical_label "FPGA_IRQ"
-		(shape output)
+		(shape input)
 		(at 160.02 44.45 90)
 		(effects
 			(font

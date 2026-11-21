@@ -1940,7 +1940,7 @@
 				(justify left top)
 			)
 		)
-		(pin "FPGA_IRQ" input
+		(pin "FPGA_IRQ" output
 			(at 114.3 87.63 180)
 			(uuid "32eabf81-4fce-40df-8636-9c8bebfd0c71")
 			(effects
@@ -2247,7 +2247,7 @@
 				(justify left)
 			)
 		)
-		(pin "FPGA_IRQ" output
+		(pin "FPGA_IRQ" input
 			(at 104.14 87.63 0)
 			(uuid "1bd58cc9-a887-4226-ba1a-de8972797688")
 			(effects

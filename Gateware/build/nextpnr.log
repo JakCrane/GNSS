@@ -1,0 +1,187 @@
+Info: constraining clock net 'clk' to 16.37 MHz
+
+Info: Logic utilisation before packing:
+Info:     Total LUT4s:        35/43848     0%
+Info:         logic LUTs:     11/43848     0%
+Info:         carry LUTs:     24/43848     0%
+Info:           RAM LUTs:      0/ 5481     0%
+Info:          RAMW LUTs:      0/10962     0%
+
+Info:      Total DFFs:        24/43848     0%
+
+Info: Packing IOs..
+Info: pin 'rf_shdn_n$tr_io' constrained to Bel 'X90/Y11/PIOD'.
+Info: pin 'rf_idle_n$tr_io' constrained to Bel 'X90/Y59/PIOB'.
+Info: pin 'fpga_irq$tr_io' constrained to Bel 'X0/Y59/PIOA'.
+Info: pin 'clk$tr_io' constrained to Bel 'X90/Y35/PIOC'.
+Info: Packing constants..
+Info: Packing carries...
+Info: Packing LUTs...
+Info: Packing LUT5-7s...
+Info: Packing FFs...
+Info:     24 FFs paired with LUTs.
+Info: Generating derived timing constraints...
+Info: Promoting globals...
+Info:     promoting clock net clk$TRELLIS_IO_IN to global network
+Info: Checksum: 0x842abe4b
+
+Info: Device utilisation:
+Info: 	          TRELLIS_IO:       4/     98     4%
+Info: 	                DCCA:       1/     56     1%
+Info: 	              DP16KD:       0/    108     0%
+Info: 	          MULT18X18D:       0/     72     0%
+Info: 	              ALU54B:       0/     36     0%
+Info: 	             EHXPLLL:       0/      4     0%
+Info: 	             EXTREFB:       0/      2     0%
+Info: 	           PCSCLKDIV:       0/      2     0%
+Info: 	             IOLOGIC:       0/    160     0%
+Info: 	            SIOLOGIC:       0/     85     0%
+Info: 	                 GSR:       0/      1     0%
+Info: 	               JTAGG:       0/      1     0%
+Info: 	                OSCG:       0/      1     0%
+Info: 	               SEDGA:       0/      1     0%
+Info: 	                 DTR:       0/      1     0%
+Info: 	             USRMCLK:       0/      1     0%
+Info: 	             CLKDIVF:       0/      4     0%
+Info: 	           ECLKSYNCB:       0/     10     0%
+Info: 	             DLLDELD:       0/      8     0%
+Info: 	              DDRDLL:       0/      4     0%
+Info: 	             DQSBUFM:       0/     10     0%
+Info: 	     TRELLIS_ECLKBUF:       0/      8     0%
+Info: 	        ECLKBRIDGECS:       0/      2     0%
+Info: 	                DCSC:       0/      2     0%
+Info: 	                 GND:       1/      1   100%
+Info: 	          TRELLIS_FF:      24/  43848     0%
+Info: 	                 VCC:       1/      1   100%
+Info: 	        TRELLIS_COMB:      39/  43848     0%
+Info: 	        TRELLIS_RAMW:       0/   5481     0%
+
+Info: Placed 6 cells based on constraints.
+Info: Creating initial analytic placement for 10 cells, random placement wirelen = 1776.
+Info:     at initial placer iter 0, wirelen = 37
+Info:     at initial placer iter 1, wirelen = 37
+Info:     at initial placer iter 2, wirelen = 37
+Info:     at initial placer iter 3, wirelen = 37
+Info: Running main analytical placer, max placement attempts per cell = 10000.
+Info:     at iteration #1, type TRELLIS_COMB: wirelen solved = 37, spread = 145, legal = 55; time = 0.01s
+Info:     at iteration #2, type TRELLIS_COMB: wirelen solved = 22, spread = 117, legal = 73; time = 0.00s
+Info:     at iteration #3, type TRELLIS_COMB: wirelen solved = 22, spread = 69, legal = 56; time = 0.00s
+Info:     at iteration #4, type TRELLIS_COMB: wirelen solved = 25, spread = 74, legal = 84; time = 0.00s
+Info:     at iteration #5, type TRELLIS_COMB: wirelen solved = 25, spread = 75, legal = 84; time = 0.00s
+Info:     at iteration #6, type TRELLIS_COMB: wirelen solved = 29, spread = 77, legal = 79; time = 0.00s
+Info: HeAP Placer Time: 0.03s
+Info:   of which solving equations: 0.00s
+Info:   of which spreading cells: 0.00s
+Info:   of which strict legalisation: 0.00s
+
+Info: Running simulated annealing placer for refinement.
+Info:   at iteration #1: temp = 0.000000, timing cost = 23, wirelen = 55
+Info:   at iteration #4: temp = 0.000000, timing cost = 20, wirelen = 46 
+Info: SA placement time 0.00s
+
+Info: Max frequency for clock '$glbnet$clk$TRELLIS_IO_IN': 204.21 MHz (PASS at 16.37 MHz)
+
+Info: Max delay posedge $glbnet$clk$TRELLIS_IO_IN -> <async>: 1.64 ns
+
+Info: Slack histogram:
+Info:  legend: times are in ps
+Info:          * represents 1 endpoint(s)
+Info:          + represents [1,1) endpoint(s)
+Info: [ 56197,  56404) |************** 
+Info: [ 56404,  56611) |********* 
+Info: [ 56611,  56818) | 
+Info: [ 56818,  57025) |* 
+Info: [ 57025,  57232) | 
+Info: [ 57232,  57439) | 
+Info: [ 57439,  57646) | 
+Info: [ 57646,  57853) | 
+Info: [ 57853,  58060) | 
+Info: [ 58060,  58267) | 
+Info: [ 58267,  58474) |***** 
+Info: [ 58474,  58681) |***** 
+Info: [ 58681,  58888) |****** 
+Info: [ 58888,  59095) |****** 
+Info: [ 59095,  59302) | 
+Info: [ 59302,  59509) | 
+Info: [ 59509,  59716) | 
+Info: [ 59716,  59923) | 
+Info: [ 59923,  60130) | 
+Info: [ 60130,  60337) |** 
+Info: Checksum: 0x83b3fe91
+Info: Routing globals...
+Info:     routing clock net $glbnet$clk$TRELLIS_IO_IN using global 8
+
+Info: Routing..
+Info: Setting up routing queue.
+Info: Routing 126 arcs.
+Info:            |   (re-)routed arcs  |   delta    | remaining|       time spent     |
+Info:    IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|
+Info:        188 |       60        112 |   60   112 |         0|       0.02       0.02|
+Info: Routing complete.
+Info: Router1 time 0.02s
+Info: Checksum: 0x67f2b7e7
+
+Info: Critical path report for clock '$glbnet$clk$TRELLIS_IO_IN' (posedge -> posedge):
+Info:       type curr  total name
+Info:   clk-to-q  0.52  0.52 Source counter_TRELLIS_FF_Q_22.Q
+Info:    routing  1.12  1.65 Net counter[13] (3,60) -> (3,59)
+Info:                          Sink irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_C0_LUT4_Z_2.A
+Info:                          Defined in:
+Info:                               top.sv:11.18-11.25
+Info:      logic  0.24  1.88 Source irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_C0_LUT4_Z_2.F
+Info:    routing  0.81  2.70 Net irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_C0[3] (3,59) -> (3,59)
+Info:                          Sink irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_ALUT_LUT4_Z.D
+Info:                          Defined in:
+Info:                               /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v:108.23-108.24
+Info:      logic  0.24  2.93 Source irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_ALUT_LUT4_Z.F
+Info:    routing  0.00  2.93 Net irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_ALUT (3,59) -> (3,59)
+Info:                          Sink irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_BLUT_LUT4_Z.F1
+Info:                          Defined in:
+Info:                               /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v:133.22-133.24
+Info:      logic  0.17  3.10 Source irq_q_TRELLIS_FF_Q_CE_PFUMX_Z_BLUT_LUT4_Z.OFX
+Info:    routing  0.60  3.69 Net irq_q_TRELLIS_FF_Q_CE (3,59) -> (4,60)
+Info:                          Sink counter_TRELLIS_FF_Q_8.LSR
+Info:                          Defined in:
+Info:                               /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_unmap.v:13.47-13.48
+Info:      setup  0.42  4.12 Source counter_TRELLIS_FF_Q_8.LSR
+Info: 1.59 ns logic, 2.53 ns routing
+
+Info: Critical path report for cross-domain path 'posedge $glbnet$clk$TRELLIS_IO_IN' -> '<async>':
+Info:       type curr  total name
+Info:   clk-to-q  0.52  0.52 Source irq_q_TRELLIS_FF_Q.Q
+Info:    routing  1.02  1.55 Net fpga_irq$TRELLIS_IO_OUT (4,59) -> (0,59)
+Info:                          Sink fpga_irq$tr_io.I
+Info:                          Defined in:
+Info:                               top.sv:12.18-12.23
+Info: 0.52 ns logic, 1.02 ns routing
+
+Info: Max frequency for clock '$glbnet$clk$TRELLIS_IO_IN': 242.90 MHz (PASS at 16.37 MHz)
+
+Info: Max delay posedge $glbnet$clk$TRELLIS_IO_IN -> <async>: 1.55 ns
+
+Info: Slack histogram:
+Info:  legend: times are in ps
+Info:          * represents 1 endpoint(s)
+Info:          + represents [1,1) endpoint(s)
+Info: [ 56977,  57127) |*********************** 
+Info: [ 57127,  57277) | 
+Info: [ 57277,  57427) |* 
+Info: [ 57427,  57577) | 
+Info: [ 57577,  57727) | 
+Info: [ 57727,  57877) |*** 
+Info: [ 57877,  58027) |****** 
+Info: [ 58027,  58177) |*** 
+Info: [ 58177,  58327) |***** 
+Info: [ 58327,  58477) |*** 
+Info: [ 58477,  58627) |** 
+Info: [ 58627,  58777) | 
+Info: [ 58777,  58927) | 
+Info: [ 58927,  59077) | 
+Info: [ 59077,  59227) | 
+Info: [ 59227,  59377) | 
+Info: [ 59377,  59527) | 
+Info: [ 59527,  59677) | 
+Info: [ 59677,  59827) | 
+Info: [ 59827,  59977) |** 
+
+Info: Program finished normally.

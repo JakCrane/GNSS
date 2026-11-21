@@ -8022,7 +8022,7 @@
 		(uuid "b38f050a-1f21-40a1-aea1-ddd1fec1cb74")
 	)
 	(hierarchical_label "FPGA_IRQ"
-		(shape input)
+		(shape output)
 		(at 137.16 93.98 180)
 		(effects
 			(font
