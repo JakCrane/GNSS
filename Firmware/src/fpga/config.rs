@@ -30,14 +30,17 @@ impl Fpga {
     /// The guard from before: PROGRAMN low while it lives.
     pub fn hold_in_reset(&mut self) -> HeldInReset<'_> {
         self.programn.set_low();
-        cortex_m::asm::delay(16_000);
+        cortex_m::asm::delay(16_000); // busy-wait of 1ms
         HeldInReset { fpga: self }
     }
 
 
     /// For a `status` command: (INITN, DONE, IRQ) levels.
     pub fn status(&self) -> (bool, bool, bool) {
-        todo!();
+        let initn: bool = self.initn.is_high();
+        let done: bool = self.done.is_high();
+        let irq: bool = self.irq.is_high();
+        (initn, done, irq)
     }
 
     /// Wait for the IRQ pin to change, for the blink test.
@@ -64,6 +67,9 @@ impl Drop for HeldInReset<'_> {
 
 impl HeldInReset<'_> {
 
+    pub fn status(&self) -> (bool, bool, bool) { // forwarding of method for when borrowed to be held
+        self.fpga.status()
+    }
     /// Set CFG[2:0] to Master SPI, release PROGRAMN, then wait for
     /// INITN high and DONE high (each with a timeout). Returns which step failed.
     pub async fn boot_from_flash(self) -> Result<(), BootErr> {

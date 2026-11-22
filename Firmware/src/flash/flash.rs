@@ -6,11 +6,15 @@ use embassy_stm32::time::Hertz;
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::config::FlashPins;
-
+use crate::fpga::HeldInReset;
 /// Macronix MX25L3233F: manufacturer C2, type 20, capacity 16 (32 Mbit).
 pub const EXPECTED_JEDEC_ID: [u8; 3] = [0xC2, 0x20, 0x16];
 pub const PAGE: usize = 256;
 
+/// Opcode + 24-bit address, MSB first.
+fn addr_cmd(op: u8, addr: u32) -> [u8; 4] {
+    [op, (addr >> 16) as u8, (addr >> 8) as u8, addr as u8]
+}
 
 pub struct Flash {
     pins: FlashPins,
@@ -21,7 +25,7 @@ impl Flash {
 
     /// Take the flash bus. Hold the FPGA in reset (PROGRAMN low) first.
     /// Dropping the returned `Bus` releases all four pins (they go floating).
-    pub fn bus(&mut self) -> Bus<'_> {
+    pub fn bus<'a>(&'a mut self, _fpga: &'a HeldInReset<'_>) -> Bus<'a> {
         let mut cfg = spi::Config::default();
         cfg.frequency = Hertz(8_000_000);
         cfg.mode = spi::MODE_0;
@@ -36,12 +40,12 @@ impl Flash {
     }
 }
 
-struct Bus<'d> {
+pub struct Bus<'d> {
     spi: Spi<'d, Blocking, spi::mode::Master>,
     cs: Output<'d>,
 }
 
-pub enum FlashErr { Spi, Timeout }
+pub enum FlashErr { Spi, Timeout, Verify }
 
 impl From<spi::Error> for FlashErr {
     fn from(_: spi::Error) -> Self { FlashErr::Spi }
@@ -123,5 +127,33 @@ impl Bus<'_> {
         self.cs.set_high();
         r?;
         self.wait_ready(Duration::from_ticks(0), Duration::from_millis(20)).await
+    }
+    
+    /// Make the NOR hold exactly `image`. Returns true if it had to be rewritten.
+    pub async fn ensure_image(&mut self, image: &[u8]) -> Result<bool, FlashErr> {
+        // 1. Already there? Compare page by page.
+        let mut page = [0u8; PAGE];
+        let mut same = true;
+        for (i, chunk) in image.chunks(PAGE).enumerate() {
+            self.read((i * PAGE) as u32, &mut page[..chunk.len()])?;
+            if &page[..chunk.len()] != chunk { same = false; break; }
+        }
+        if same { return Ok(false); }
+        
+        // 2. Erase enough 64 KB blocks, then program page by page.
+        self.unprotect().await?;
+        for block in 0..(image.len() as u32).div_ceil(65536) {
+            self.erase_64k(block * 65536).await?;
+        }
+        for (i, chunk) in image.chunks(PAGE).enumerate() {
+            self.program_page((i * PAGE) as u32, chunk).await?;
+        }
+        
+        // 3. Verify.
+        for (i, chunk) in image.chunks(PAGE).enumerate() {
+            self.read((i * PAGE) as u32, &mut page[..chunk.len()])?;
+            if &page[..chunk.len()] != chunk { return Err(FlashErr::Verify); }
+        }
+        Ok(true)
     }
 }

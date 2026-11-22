@@ -9,7 +9,9 @@ mod usb;
 
 use embassy_executor::Spawner;
 use embassy_stm32::Config;
-use embassy_time::Timer;
+use core::fmt::Write as _;
+use embassy_time::{with_timeout, Duration, Timer, Instant};
+use heapless::String;
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -34,20 +36,58 @@ async fn main(spawner: Spawner) {
     }
     let board = config::Board::new(embassy_stm32::init(chip_config));
 
-
+    let mut fpga = fpga::Fpga::new(board.fpga);
+    let mut flash = flash::Flash::new(board.flash);
     let usb::Usb { device, mut tx, rx } = usb::init(board.usb);
+    
     spawner.spawn(usb::run(device).unwrap());
     spawner.spawn(commands::run(rx).unwrap());
+
+        // Once at power-up: make sure the NOR holds our bitstream, then boot the FPGA from it.
+    let written = {
+        let held = fpga.hold_in_reset();
+        let mut bus = flash.bus(&held);
+        bus.ensure_image(fpga::BITSTREAM).await
+    };
+    let boot = fpga.hold_in_reset().boot_from_flash().await;
 
     // Main loop: say hello once a second while a terminal has the port open.
     loop {
         tx.wait_connection().await;
-        Timer::after_millis(100).await; //
+        
+        // holds the main loop up until the terminal opens the port
+        while !tx.dtr() {
+            Timer::after_millis(50).await;
+        }
+        Timer::after_millis(100).await;
+
+        // What happened at power-up
+        let msg = match &written {
+            Ok(true) => "flash: rewritten\r\n",
+            Ok(false) => "flash: already up to date\r\n",
+            Err(flash::FlashErr::Spi) => "flash: SPI error\r\n",
+            Err(flash::FlashErr::Timeout) => "flash: timeout\r\n",
+            Err(flash::FlashErr::Verify) => "flash: verify failed\r\n",
+        };
+        let _ = usb::write_str(&mut tx, msg).await;
+
+        let msg = match &boot {
+            Ok(()) => "boot: DONE=1\r\n",
+            Err(fpga::BootErr::InitTimeout) => "boot: INITN never went high\r\n",
+            Err(fpga::BootErr::DoneTimeout) => "boot: DONE never went high\r\n",
+        };
+        let _ = usb::write_str(&mut tx, msg).await;
+
+        let start = Instant::now();
         while tx.dtr() {
-            if usb::write_str(&mut tx, "hello from the GNSS board\r\n").await.is_err() {
-                break; // port closed mid-write
+            let mut line: String<64> = String::new();
+            match with_timeout(Duration::from_secs(2), fpga.wait_irq_change()).await {
+                Ok(level) => { let _ = write!(line, "irq={} t={}ms\r\n", level as u8, start.elapsed().as_millis()); }
+                Err(_) => { let _ = line.push_str("irq: no edge in 2 s\r\n"); }
             }
-            Timer::after_secs(1).await;
+            if usb::write_str(&mut tx, &line).await.is_err() {
+                break;
+            }
         }
     }
 }
