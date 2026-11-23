@@ -6,81 +6,118 @@
  \----------------------------------------------------------------------------/
  Yosys 0.71+59 (git sha1 d9358f38c, Release, Clang /usr/bin/clang++ 21.1.8)
 
--- Running command `read_verilog -sv top.sv; hierarchy -check -top top; proc; check -assert; synth_ecp5 -top top -json build/top.json' --
+-- Running command `read_verilog -sv top.sv spi.sv; hierarchy -check -top top; proc; check -assert; synth_ecp5 -top top -json build/top.json' --
 
 1. Executing Verilog-2005 frontend: top.sv
 Parsing SystemVerilog input from `top.sv' to AST representation.
 Generating RTLIL representation for module `\top'.
 Successfully finished Verilog frontend.
 
-2. Executing HIERARCHY pass (managing design hierarchy).
+2. Executing Verilog-2005 frontend: spi.sv
+Parsing SystemVerilog input from `spi.sv' to AST representation.
+Generating RTLIL representation for module `\mcu_spi'.
+Successfully finished Verilog frontend.
 
-2.1. Analyzing design hierarchy..
-Top module:  \top
+3. Executing HIERARCHY pass (managing design hierarchy).
 
-2.2. Analyzing design hierarchy..
+3.1. Analyzing design hierarchy..
 Top module:  \top
+Used module:     \mcu_spi
+
+3.2. Analyzing design hierarchy..
+Top module:  \top
+Used module:     \mcu_spi
 Removed 0 unused modules.
 
-3. Executing PROC pass (convert processes to netlists).
+4. Executing PROC pass (convert processes to netlists).
 
-3.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+4.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Cleaned up 0 empty switches.
 
-3.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
-Marked 1 switch rules as full_case in process $top.sv:16$proc$1 in module top.
+4.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 3 switch rules as full_case in process $spi.sv:23$proc$4 in module mcu_spi.
 Removed a total of 0 dead cases.
 
-3.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
-Removed 1 redundant assignment.
-Promoted 2 assignments to connections.
+4.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 9 assignments to connections.
 
-3.4. Executing PROC_INIT pass (extract init attributes).
-Found init rule in `\top.$top.sv:12$proc$6'.
-  Set init value: \irq_q = 1'0
-Found init rule in `\top.$top.sv:11$proc$5'.
-  Set init value: \counter = 23'00000000000000000000000
+4.4. Executing PROC_INIT pass (extract init attributes).
+Found init rule in `\mcu_spi.$spi.sv:13$proc$17'.
+  Set init value: \sh_out = 8'00000000
+Found init rule in `\mcu_spi.$spi.sv:12$proc$16'.
+  Set init value: \cmd = 8'00000000
+Found init rule in `\mcu_spi.$spi.sv:11$proc$15'.
+  Set init value: \bit_cnt = 6'000000
+Found init rule in `\mcu_spi.$spi.sv:9$proc$14'.
+  Set init value: \sck_s = 3'000
+Found init rule in `\mcu_spi.$spi.sv:8$proc$13'.
+  Set init value: \mosi_s = 2'00
+Found init rule in `\mcu_spi.$spi.sv:7$proc$12'.
+  Set init value: \cs_s = 2'11
 
-3.5. Executing PROC_ARST pass (detect async resets in processes).
+4.5. Executing PROC_ARST pass (detect async resets in processes).
 
-3.6. Executing PROC_ROM pass (convert switches to ROMs).
+4.6. Executing PROC_ROM pass (convert switches to ROMs).
 Converted 0 switches.
+<suppressed ~6 debug messages>
+
+4.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\mcu_spi.$spi.sv:13$proc$17'.
+Creating decoders for process `\mcu_spi.$spi.sv:12$proc$16'.
+Creating decoders for process `\mcu_spi.$spi.sv:11$proc$15'.
+Creating decoders for process `\mcu_spi.$spi.sv:9$proc$14'.
+Creating decoders for process `\mcu_spi.$spi.sv:8$proc$13'.
+Creating decoders for process `\mcu_spi.$spi.sv:7$proc$12'.
+Creating decoders for process `\mcu_spi.$spi.sv:48$proc$11'.
+Creating decoders for process `\mcu_spi.$spi.sv:23$proc$4'.
+     1/3: $0\sh_out[7:0]
+     2/3: $0\cmd[7:0]
+     3/3: $0\bit_cnt[5:0]
+
+4.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+4.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\mcu_spi.\cs_s' using process `\mcu_spi.$spi.sv:48$proc$11'.
+  created $dff cell `$procdff$45' with positive edge clock.
+Creating register for signal `\mcu_spi.\mosi_s' using process `\mcu_spi.$spi.sv:48$proc$11'.
+  created $dff cell `$procdff$46' with positive edge clock.
+Creating register for signal `\mcu_spi.\sck_s' using process `\mcu_spi.$spi.sv:48$proc$11'.
+  created $dff cell `$procdff$47' with positive edge clock.
+Creating register for signal `\mcu_spi.\bit_cnt' using process `\mcu_spi.$spi.sv:23$proc$4'.
+  created $dff cell `$procdff$48' with positive edge clock.
+Creating register for signal `\mcu_spi.\cmd' using process `\mcu_spi.$spi.sv:23$proc$4'.
+  created $dff cell `$procdff$49' with positive edge clock.
+Creating register for signal `\mcu_spi.\sh_out' using process `\mcu_spi.$spi.sv:23$proc$4'.
+  created $dff cell `$procdff$50' with positive edge clock.
+
+4.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+4.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Removing empty process `mcu_spi.$spi.sv:13$proc$17'.
+Removing empty process `mcu_spi.$spi.sv:12$proc$16'.
+Removing empty process `mcu_spi.$spi.sv:11$proc$15'.
+Removing empty process `mcu_spi.$spi.sv:9$proc$14'.
+Removing empty process `mcu_spi.$spi.sv:8$proc$13'.
+Removing empty process `mcu_spi.$spi.sv:7$proc$12'.
+Removing empty process `mcu_spi.$spi.sv:48$proc$11'.
+Found and cleaned up 6 empty switches in `\mcu_spi.$spi.sv:23$proc$4'.
+Removing empty process `mcu_spi.$spi.sv:23$proc$4'.
+Cleaned up 6 empty switches.
+
+4.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module mcu_spi.
 <suppressed ~1 debug messages>
-
-3.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
-Creating decoders for process `\top.$top.sv:12$proc$6'.
-Creating decoders for process `\top.$top.sv:11$proc$5'.
-Creating decoders for process `\top.$top.sv:16$proc$1'.
-     1/2: $0\counter[22:0]
-     2/2: $0\irq_q[0:0]
-
-3.8. Executing PROC_DLATCH pass (convert process syncs to latches).
-
-3.9. Executing PROC_DFF pass (convert process syncs to FFs).
-Creating register for signal `\top.\counter' using process `\top.$top.sv:16$proc$1'.
-  created $dff cell `$procdff$13' with positive edge clock.
-Creating register for signal `\top.\irq_q' using process `\top.$top.sv:16$proc$1'.
-  created $dff cell `$procdff$14' with positive edge clock.
-
-3.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
-
-3.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
-Removing empty process `top.$top.sv:12$proc$6'.
-Removing empty process `top.$top.sv:11$proc$5'.
-Found and cleaned up 1 empty switch in `\top.$top.sv:16$proc$1'.
-Removing empty process `top.$top.sv:16$proc$1'.
-Cleaned up 1 empty switch.
-
-3.12. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-4. Executing CHECK pass (checking for obvious problems).
+5. Executing CHECK pass (checking for obvious problems).
+Checking module mcu_spi...
 Checking module top...
 Found and reported 0 problems.
 
-5. Executing SYNTH_LATTICE pass.
+6. Executing SYNTH_LATTICE pass.
 
-5.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_sim_ecp5.v
+6.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_sim_ecp5.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_sim_ecp5.v' to AST representation.
 Generating RTLIL representation for module `\LUT4'.
 Generating RTLIL representation for module `\$__ABC9_LUT5'.
@@ -135,7 +172,7 @@ Generating RTLIL representation for module `\CCU2C'.
 Generating RTLIL representation for module `\DP16KD'.
 Successfully finished Verilog frontend.
 
-5.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_bb_ecp5.v
+6.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_bb_ecp5.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_bb_ecp5.v' to AST representation.
 Generating RTLIL representation for module `\GSR'.
 Generating RTLIL representation for module `\PUR'.
@@ -175,399 +212,532 @@ Generating RTLIL representation for module `\JTAGG'.
 Generating RTLIL representation for module `\DCUA'.
 Successfully finished Verilog frontend.
 
-5.3. Executing HIERARCHY pass (managing design hierarchy).
+6.3. Executing HIERARCHY pass (managing design hierarchy).
 
-5.3.1. Analyzing design hierarchy..
+6.3.1. Analyzing design hierarchy..
 Top module:  \top
+Used module:     \mcu_spi
 
-5.3.2. Analyzing design hierarchy..
+6.3.2. Analyzing design hierarchy..
 Top module:  \top
+Used module:     \mcu_spi
 Removed 0 unused modules.
 
-5.4. Executing PROC pass (convert processes to netlists).
+6.4. Executing PROC pass (convert processes to netlists).
 
-5.4.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+6.4.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Cleaned up 0 empty switches.
 
-5.4.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+6.4.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
 Removed a total of 0 dead cases.
 
-5.4.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+6.4.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
 Removed 0 redundant assignments.
 Promoted 0 assignments to connections.
 
-5.4.4. Executing PROC_INIT pass (extract init attributes).
+6.4.4. Executing PROC_INIT pass (extract init attributes).
 
-5.4.5. Executing PROC_ARST pass (detect async resets in processes).
+6.4.5. Executing PROC_ARST pass (detect async resets in processes).
 
-5.4.6. Executing PROC_ROM pass (convert switches to ROMs).
+6.4.6. Executing PROC_ROM pass (convert switches to ROMs).
 Converted 0 switches.
 
-5.4.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+6.4.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
 
-5.4.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+6.4.8. Executing PROC_DLATCH pass (convert process syncs to latches).
 
-5.4.9. Executing PROC_DFF pass (convert process syncs to FFs).
+6.4.9. Executing PROC_DFF pass (convert process syncs to FFs).
 
-5.4.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+6.4.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
 
-5.4.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+6.4.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Cleaned up 0 empty switches.
 
-5.4.12. Executing OPT_EXPR pass (perform const folding).
+6.4.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module mcu_spi.
 Optimizing module top.
 
-5.5. Executing CHECK pass (checking for obvious problems).
+6.5. Executing CHECK pass (checking for obvious problems).
+Checking module mcu_spi...
 Checking module top...
 Found and reported 0 problems.
 
-5.6. Executing FLATTEN pass (flatten design).
-
-5.7. Executing TRIBUF pass.
-
-5.8. Executing DEMINOUT pass (demote inout ports to input or output).
-
-5.9. Executing OPT_EXPR pass (perform const folding).
-Optimizing module top.
-
-5.10. Executing CHECK pass (checking for obvious problems).
-Checking module top...
-Found and reported 0 problems.
-
-5.11. Executing OPT_CLEAN pass (remove unused cells and wires).
-Finding unused cells or wires in module \top..
-Removed 0 unused cells and 6 unused wires.
+6.6. Executing FLATTEN pass (flatten design).
+Deleting now unused module mcu_spi.
 <suppressed ~1 debug messages>
 
-5.12. Executing OPT pass (performing simple optimizations).
+6.7. Executing TRIBUF pass.
 
-5.12.1. Executing OPT_EXPR pass (perform const folding).
+6.8. Executing DEMINOUT pass (demote inout ports to input or output).
+
+6.9. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.12.2. Executing OPT_MERGE pass (detect identical cells).
-Finding identical cells in module `\top'.
-Computing hashes of 7 cells of `\top'.
-Finding duplicate cells in `\top'.
-Removed a total of 0 cells.
+6.10. Executing CHECK pass (checking for obvious problems).
+Checking module top...
+Found and reported 0 problems.
 
-5.12.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
-Running muxtree optimizer on module \top..
-  Creating internal representation of mux trees.
-  Evaluating internal representation of mux trees.
-  Analyzing evaluation results.
-Removed 0 multiplexer ports.
-<suppressed ~4 debug messages>
-
-5.12.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
-  Optimizing cells in module \top.
-Performed a total of 0 changes.
-
-5.12.5. Executing OPT_MERGE pass (detect identical cells).
-Finding identical cells in module `\top'.
-Computing hashes of 7 cells of `\top'.
-Finding duplicate cells in `\top'.
-Removed a total of 0 cells.
-
-5.12.6. Executing OPT_DFF pass (perform DFF optimizations).
-
-5.12.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.11. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
-
-5.12.8. Executing OPT_EXPR pass (perform const folding).
-Optimizing module top.
-
-5.12.9. Finished fast OPT passes. (There is nothing left to do.)
-
-5.13. Executing FSM pass (extract and optimize FSM).
-
-5.13.1. Executing FSM_DETECT pass (finding FSMs in design).
-
-5.13.2. Executing FSM_EXTRACT pass (extracting FSM from design).
-
-5.13.3. Executing FSM_OPT pass (simple optimizations of FSMs).
-
-5.13.4. Executing OPT_CLEAN pass (remove unused cells and wires).
-Finding unused cells or wires in module \top..
-
-5.13.5. Executing FSM_OPT pass (simple optimizations of FSMs).
-
-5.13.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
-
-5.13.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
-
-5.13.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
-
-5.14. Executing OPT pass (performing simple optimizations).
-
-5.14.1. Executing OPT_EXPR pass (perform const folding).
-Optimizing module top.
-
-5.14.2. Executing OPT_MERGE pass (detect identical cells).
-Finding identical cells in module `\top'.
-Computing hashes of 7 cells of `\top'.
-Finding duplicate cells in `\top'.
-Removed a total of 0 cells.
-
-5.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
-Running muxtree optimizer on module \top..
-  Creating internal representation of mux trees.
-  Evaluating internal representation of mux trees.
-  Analyzing evaluation results.
-Removed 0 multiplexer ports.
-<suppressed ~4 debug messages>
-
-5.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
-  Optimizing cells in module \top.
-Performed a total of 0 changes.
-
-5.14.5. Executing OPT_MERGE pass (detect identical cells).
-Finding identical cells in module `\top'.
-Computing hashes of 7 cells of `\top'.
-Finding duplicate cells in `\top'.
-Removed a total of 0 cells.
-
-5.14.6. Executing OPT_DFF pass (perform DFF optimizations).
-Adding SRST signal on $procdff$13 ($dff) from module top (D = $top.sv:21$add$4_Y, Q = \counter, rval = 23'00000000000000000000000).
-Adding EN signal on $procdff$14 ($dff) from module top (D = $top.sv:19$not$3_Y, Q = \irq_q).
-
-5.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
-Finding unused cells or wires in module \top..
-Removed 2 unused cells and 2 unused wires.
+Removed 1 unused cells and 26 unused wires.
 <suppressed ~3 debug messages>
 
-5.14.8. Executing OPT_EXPR pass (perform const folding).
+6.12. Executing OPT pass (performing simple optimizations).
+
+6.12.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.14.9. Rerunning OPT passes. (Maybe there is more to do..)
-
-5.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
-Running muxtree optimizer on module \top..
-  Creating internal representation of mux trees.
-  No muxes found in this module.
-Removed 0 multiplexer ports.
-
-5.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
-  Optimizing cells in module \top.
-Performed a total of 0 changes.
-
-5.14.12. Executing OPT_MERGE pass (detect identical cells).
+6.12.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 25 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+6.12.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~13 debug messages>
 
-5.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.12.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+Performed a total of 0 changes.
+
+6.12.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 25 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.12.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+6.12.7. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.14.15. Executing OPT_EXPR pass (perform const folding).
+6.12.8. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.14.16. Finished fast OPT passes. (There is nothing left to do.)
+6.12.9. Finished fast OPT passes. (There is nothing left to do.)
 
-5.15. Executing WREDUCE pass (reducing word size of cells).
+6.13. Executing FSM pass (extract and optimize FSM).
 
-5.16. Executing PEEPOPT pass (run peephole optimizers).
+6.13.1. Executing FSM_DETECT pass (finding FSMs in design).
 
-5.17. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.13.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+
+6.13.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+6.13.4. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.18. Executing SHARE pass (SAT-based resource sharing).
+6.13.5. Executing FSM_OPT pass (simple optimizations of FSMs).
 
-5.19. Executing TECHMAP pass (map to technology primitives).
+6.13.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
 
-5.19.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/cmp2lut.v
+6.13.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+6.13.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+
+6.14. Executing OPT pass (performing simple optimizations).
+
+6.14.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
+
+6.14.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 25 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~13 debug messages>
+
+6.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+Performed a total of 0 changes.
+
+6.14.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 25 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+Adding SRST signal on $flatten\spi.$procdff$49 ($dff) from module top (D = $flatten\spi.$procmux$34_Y, Q = \spi.cmd, rval = 8'00000000).
+Adding EN signal on $auto$ff.cc:337:slice$277 ($sdff) from module top (D = { \spi.cmd [6:0] \spi.mosi_s [1] }, Q = \spi.cmd).
+Adding SRST signal on $flatten\spi.$procdff$48 ($dff) from module top (D = $flatten\spi.$procmux$40_Y, Q = \spi.bit_cnt, rval = 6'000000).
+Adding EN signal on $auto$ff.cc:337:slice$281 ($sdff) from module top (D = $flatten\spi.$spi.sv:40$add$8_Y, Q = \spi.bit_cnt).
+Adding SRST signal on $flatten\spi.$procdff$50 ($dff) from module top (D = $flatten\spi.$procmux$26_Y, Q = \spi.sh_out, rval = 8'00000000).
+Adding EN signal on $auto$ff.cc:337:slice$283 ($sdff) from module top (D = $flatten\spi.$procmux$26_Y, Q = \spi.sh_out).
+
+6.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
+Removed 6 unused cells and 6 unused wires.
+<suppressed ~7 debug messages>
+
+6.14.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
+<suppressed ~1 debug messages>
+
+6.14.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+6.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~5 debug messages>
+
+6.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+Performed a total of 0 changes.
+
+6.14.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 23 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+6.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
+
+6.14.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
+
+6.14.16. Finished fast OPT passes. (There is nothing left to do.)
+
+6.15. Executing WREDUCE pass (reducing word size of cells).
+Removed top 28 bits (of 32) from port B of cell top.$flatten\spi.$spi.sv:42$gt$9 ($gt).
+Removed top 3 bits (of 6) from port B of cell top.$flatten\spi.$spi.sv:33$eq$7 ($eq).
+Removed top 28 bits (of 32) from port B of cell top.$flatten\spi.$spi.sv:29$lt$6 ($lt).
+Removed top 1 bits (of 2) from port B of cell top.$flatten\spi.$spi.sv:16$eq$2 ($eq).
+Removed top 1 bits (of 8) from mux cell top.$flatten\spi.$procmux$22 ($mux).
+Removed top 7 bits (of 8) from port B of cell top.$flatten\spi.$procmux$23_CMP0 ($eq).
+Removed top 1 bits (of 8) from FF cell top.$auto$ff.cc:337:slice$278 ($sdffe).
+Removed top 1 bits (of 8) from wire top.$flatten\spi.$procmux$22_Y.
+
+6.16. Executing PEEPOPT pass (run peephole optimizers).
+
+6.17. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
+Removed 0 unused cells and 1 unused wires.
+<suppressed ~1 debug messages>
+
+6.18. Executing SHARE pass (SAT-based resource sharing).
+
+6.19. Executing TECHMAP pass (map to technology primitives).
+
+6.19.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/cmp2lut.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/cmp2lut.v' to AST representation.
 Generating RTLIL representation for module `\_90_lut_cmp_'.
 Successfully finished Verilog frontend.
 
-5.19.2. Continuing TECHMAP pass.
+6.19.2. Continuing TECHMAP pass.
 No more expansions possible.
-<suppressed ~6 debug messages>
+<suppressed ~59 debug messages>
 
-5.20. Executing OPT_EXPR pass (perform const folding).
+6.20. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.21. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.21. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.22. Executing TECHMAP pass (map to technology primitives).
+6.22. Executing TECHMAP pass (map to technology primitives).
 
-5.22.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/mul2dsp.v
+6.22.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/mul2dsp.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/mul2dsp.v' to AST representation.
 Generating RTLIL representation for module `\_80_mul'.
 Generating RTLIL representation for module `\_90_soft_mul'.
 Successfully finished Verilog frontend.
 
-5.22.2. Continuing TECHMAP pass.
+6.22.2. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~4 debug messages>
 
-5.23. Executing TECHMAP pass (map to technology primitives).
+6.23. Executing TECHMAP pass (map to technology primitives).
 
-5.23.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/dsp_map_18x18.v
+6.23.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/dsp_map_18x18.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/dsp_map_18x18.v' to AST representation.
 Generating RTLIL representation for module `$__MUL18X18'.
 Successfully finished Verilog frontend.
 
-5.23.2. Continuing TECHMAP pass.
+6.23.2. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~3 debug messages>
 
-5.24. Executing ALUMACC pass (create $alu and $macc cells).
+6.24. Executing ALUMACC pass (create $alu and $macc cells).
 Extracting $alu and $macc cells in module top:
-  creating $macc model for $top.sv:21$add$4 ($add).
-  creating $alu model for $macc $top.sv:21$add$4.
-  creating $alu cell for $top.sv:21$add$4: $auto$alumacc.cc:578:replace_alu$242
-  created 1 $alu and 0 $macc cells.
+  creating $macc model for $flatten\spi.$spi.sv:40$add$8 ($add).
+  creating $alu model for $macc $flatten\spi.$spi.sv:40$add$8.
+  creating $alu model for $flatten\spi.$spi.sv:29$lt$6 ($lt): new $alu
+  creating $alu model for $flatten\spi.$spi.sv:42$gt$9 ($gt): merged with $flatten\spi.$spi.sv:29$lt$6.
+  creating $alu cell for $flatten\spi.$spi.sv:29$lt$6, $flatten\spi.$spi.sv:42$gt$9: $auto$alumacc.cc:578:replace_alu$293
+  creating $alu cell for $flatten\spi.$spi.sv:40$add$8: $auto$alumacc.cc:578:replace_alu$304
+  created 2 $alu and 0 $macc cells.
 
-5.25. Executing OPT pass (performing simple optimizations).
+6.25. Executing OPT pass (performing simple optimizations).
 
-5.25.1. Executing OPT_EXPR pass (perform const folding).
+6.25.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.25.2. Executing OPT_MERGE pass (detect identical cells).
+6.25.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 26 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.25.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.25.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
 Running muxtree optimizer on module \top..
   Creating internal representation of mux trees.
-  No muxes found in this module.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
 Removed 0 multiplexer ports.
+<suppressed ~5 debug messages>
 
-5.25.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.25.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
   Optimizing cells in module \top.
 Performed a total of 0 changes.
 
-5.25.5. Executing OPT_MERGE pass (detect identical cells).
+6.25.5. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 26 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.25.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.25.6. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.25.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.25.7. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
+Removed 0 unused cells and 2 unused wires.
+<suppressed ~1 debug messages>
 
-5.25.8. Executing OPT_EXPR pass (perform const folding).
+6.25.8. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.25.9. Finished fast OPT passes. (There is nothing left to do.)
+6.25.9. Rerunning OPT passes. (Maybe there is more to do..)
 
-5.26. Executing MEMORY pass.
+6.25.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~5 debug messages>
 
-5.26.1. Executing OPT_MEM pass (optimize memories).
-Performed a total of 0 transformations.
+6.25.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+Performed a total of 0 changes.
 
-5.26.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
-Performed a total of 0 transformations.
+6.25.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 26 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
 
-5.26.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+6.25.13. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.26.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
-
-5.26.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
-
-5.26.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.25.14. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.26.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+6.25.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
 
-5.26.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+6.25.16. Finished fast OPT passes. (There is nothing left to do.)
+
+6.26. Executing MEMORY pass.
+
+6.26.1. Executing OPT_MEM pass (optimize memories).
 Performed a total of 0 transformations.
 
-5.26.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.26.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+Performed a total of 0 transformations.
+
+6.26.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+
+6.26.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+
+6.26.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+
+6.26.6. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.26.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+6.26.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
 
-5.27. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.26.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+Performed a total of 0 transformations.
+
+6.26.9. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.28. Executing MEMORY_LIBMAP pass (mapping memories to cells).
+6.26.10. Executing MEMORY_COLLECT pass (generating $mem cells).
 
-5.29. Executing TECHMAP pass (map to technology primitives).
+6.27. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
 
-5.29.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/lutrams_map_trellis.v
+6.28. Executing MEMORY_LIBMAP pass (mapping memories to cells).
+
+6.29. Executing TECHMAP pass (map to technology primitives).
+
+6.29.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/lutrams_map_trellis.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/lutrams_map_trellis.v' to AST representation.
 Generating RTLIL representation for module `$__TRELLIS_DPR16X4_'.
 Successfully finished Verilog frontend.
 
-5.29.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/brams_map_16kd.v
+6.29.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/brams_map_16kd.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/brams_map_16kd.v' to AST representation.
 Generating RTLIL representation for module `$__DP16KD_'.
 Generating RTLIL representation for module `$__PDPW16KD_'.
 Successfully finished Verilog frontend.
 
-5.29.3. Continuing TECHMAP pass.
+6.29.3. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~5 debug messages>
 
-5.30. Executing OPT pass (performing simple optimizations).
+6.30. Executing OPT pass (performing simple optimizations).
 
-5.30.1. Executing OPT_EXPR pass (perform const folding).
+6.30.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
+<suppressed ~4 debug messages>
 
-5.30.2. Executing OPT_MERGE pass (detect identical cells).
+6.30.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 27 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.30.3. Executing OPT_DFF pass (perform DFF optimizations).
+6.30.3. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.30.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.30.4. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
+Removed 0 unused cells and 5 unused wires.
+<suppressed ~1 debug messages>
 
-5.30.5. Finished fast OPT passes.
+6.30.5. Finished fast OPT passes.
 
-5.31. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+6.31. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
 
-5.32. Executing OPT pass (performing simple optimizations).
+6.32. Executing OPT pass (performing simple optimizations).
 
-5.32.1. Executing OPT_EXPR pass (perform const folding).
+6.32.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.32.2. Executing OPT_MERGE pass (detect identical cells).
+6.32.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 27 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.32.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.32.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
 Running muxtree optimizer on module \top..
   Creating internal representation of mux trees.
-  No muxes found in this module.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
 Removed 0 multiplexer ports.
+<suppressed ~3 debug messages>
 
-5.32.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.32.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+    Consolidated identical input bits for $mux cell $flatten\spi.$procmux$22:
+      Old ports: A=7'0000000, B=7'1011010, Y=$auto$wreduce.cc:514:run$291 [6:0]
+      New ports: A=1'0, B=1'1, Y=$auto$wreduce.cc:514:run$291 [1]
+      New connections: { $auto$wreduce.cc:514:run$291 [6:2] $auto$wreduce.cc:514:run$291 [0] } = { $auto$wreduce.cc:514:run$291 [1] 1'0 $auto$wreduce.cc:514:run$291 [1] $auto$wreduce.cc:514:run$291 [1] 2'00 }
+  Optimizing cells in module \top.
+    Consolidated identical input bits for $mux cell $flatten\spi.$procmux$26:
+      Old ports: A={ \spi.sh_out [6:0] 1'0 }, B={ 1'0 $auto$wreduce.cc:514:run$291 [6:0] }, Y=$flatten\spi.$procmux$26_Y
+      New ports: A=\spi.sh_out [6:0], B={ 1'0 $auto$wreduce.cc:514:run$291 [1] 1'0 $auto$wreduce.cc:514:run$291 [1] $auto$wreduce.cc:514:run$291 [1] 1'0 $auto$wreduce.cc:514:run$291 [1] }, Y=$flatten\spi.$procmux$26_Y [7:1]
+      New connections: $flatten\spi.$procmux$26_Y [0] = 1'0
+  Optimizing cells in module \top.
+Performed a total of 2 changes.
+
+6.32.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 27 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.32.6. Executing OPT_DFF pass (perform DFF optimizations).
+Setting constant 0-bit at position 0 on $auto$ff.cc:337:slice$284 ($sdffe) from module top.
+
+6.32.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
+
+6.32.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
+<suppressed ~1 debug messages>
+
+6.32.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+6.32.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~2 debug messages>
+
+6.32.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
   Optimizing cells in module \top.
 Performed a total of 0 changes.
 
-5.32.5. Executing OPT_MERGE pass (detect identical cells).
+6.32.12. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 5 cells of `\top'.
+Computing hashes of 26 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.32.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.32.13. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.32.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.32.14. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
+Removed 0 unused cells and 1 unused wires.
+<suppressed ~1 debug messages>
 
-5.32.8. Executing OPT_EXPR pass (perform const folding).
+6.32.15. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.32.9. Finished fast OPT passes. (There is nothing left to do.)
+6.32.16. Rerunning OPT passes. (Maybe there is more to do..)
 
-5.33. Executing TECHMAP pass (map to technology primitives).
+6.32.17. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \top..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~2 debug messages>
 
-5.33.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
+6.32.18. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \top.
+Performed a total of 0 changes.
+
+6.32.19. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\top'.
+Computing hashes of 26 cells of `\top'.
+Finding duplicate cells in `\top'.
+Removed a total of 0 cells.
+
+6.32.20. Executing OPT_DFF pass (perform DFF optimizations).
+
+6.32.21. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \top..
+
+6.32.22. Executing OPT_EXPR pass (perform const folding).
+Optimizing module top.
+
+6.32.23. Finished fast OPT passes. (There is nothing left to do.)
+
+6.33. Executing TECHMAP pass (map to technology primitives).
+
+6.33.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v' to AST representation.
 Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
 Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
@@ -596,63 +766,71 @@ Generating RTLIL representation for module `$connect'.
 Generating RTLIL representation for module `$input_port'.
 Successfully finished Verilog frontend.
 
-5.33.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/arith_map_ccu2c.v
+6.33.2. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/arith_map_ccu2c.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/arith_map_ccu2c.v' to AST representation.
 Generating RTLIL representation for module `\_80_ccu2c_alu'.
 Successfully finished Verilog frontend.
 
-5.33.3. Continuing TECHMAP pass.
-Using extmapper simplemap for cells of type $eq.
-Using extmapper simplemap for cells of type $not.
-Using extmapper simplemap for cells of type $sdff.
-Using extmapper simplemap for cells of type $dffe.
-Using template $paramod$36fdbc18fab0758c8553dda57bd33e3f8f3e8765\_80_ccu2c_alu for cells of type $alu.
-Using extmapper simplemap for cells of type $logic_or.
+6.33.3. Continuing TECHMAP pass.
 Using extmapper simplemap for cells of type $logic_and.
-Using extmapper simplemap for cells of type $xor.
+Using extmapper simplemap for cells of type $eq.
+Using extmapper simplemap for cells of type $dff.
 Using extmapper simplemap for cells of type $mux.
+Using extmapper simplemap for cells of type $sdffe.
+Using extmapper simplemap for cells of type $reduce_and.
+Using extmapper simplemap for cells of type $ne.
+Using extmapper simplemap for cells of type $reduce_bool.
+Using template $paramod$b8c0a997bce700f23568a5ada79cc6781d1f5ca0\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $not.
+Using extmapper simplemap for cells of type $or.
+Using template $paramod$32efbfac1c4dc57230cf86180788fdfd12e3b511\_80_ccu2c_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $xor.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000011 for cells of type $fa.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000000011 for cells of type $lcu.
 Using extmapper simplemap for cells of type $pos.
+Using extmapper simplemap for cells of type $logic_or.
+Using extmapper simplemap for cells of type $and.
 No more expansions possible.
-<suppressed ~154 debug messages>
+<suppressed ~284 debug messages>
 
-5.34. Executing OPT pass (performing simple optimizations).
+6.34. Executing OPT pass (performing simple optimizations).
 
-5.34.1. Executing OPT_EXPR pass (perform const folding).
+6.34.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
-<suppressed ~109 debug messages>
+<suppressed ~75 debug messages>
 
-5.34.2. Executing OPT_MERGE pass (detect identical cells).
+6.34.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 110 cells of `\top'.
+Computing hashes of 96 cells of `\top'.
 Finding duplicate cells in `\top'.
-Computing hashes of 94 cells of `\top'.
+Computing hashes of 86 cells of `\top'.
 Finding duplicate cells in `\top'.
-<suppressed ~48 debug messages>
-Removed a total of 16 cells.
+<suppressed ~30 debug messages>
+Removed a total of 10 cells.
 
-5.34.3. Executing OPT_DFF pass (perform DFF optimizations).
+6.34.3. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.34.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.34.4. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
-Removed 19 unused cells and 71 unused wires.
-<suppressed ~20 debug messages>
+Removed 5 unused cells and 92 unused wires.
+<suppressed ~6 debug messages>
 
-5.34.5. Finished fast OPT passes.
+6.34.5. Finished fast OPT passes.
 
-5.35. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.35. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.36. Executing DFFLEGALIZE pass (convert FFs and LATCHes to types supported by the target).
+6.36. Executing DFFLEGALIZE pass (convert FFs and LATCHes to types supported by the target).
 
-5.37. Executing OPT_MERGE pass (detect identical cells).
+6.37. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
-Computing hashes of 75 cells of `\top'.
+Computing hashes of 81 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.38. Executing TECHMAP pass (map to technology primitives).
+6.38. Executing TECHMAP pass (map to technology primitives).
 
-5.38.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v
+6.38.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v' to AST representation.
 Generating RTLIL representation for module `$_DFF_N_'.
 Generating RTLIL representation for module `$_DFF_P_'.
@@ -725,59 +903,59 @@ Generating RTLIL representation for module `\ILVDS'.
 Generating RTLIL representation for module `\OLVDS'.
 Successfully finished Verilog frontend.
 
-5.38.2. Continuing TECHMAP pass.
-Using template $_SDFF_PP0_ for cells of type $_SDFF_PP0_.
-Using template $paramod$_DFFE_PP_\_TECHMAP_WIREINIT_Q_=1'0 for cells of type $_DFFE_PP_.
+6.38.2. Continuing TECHMAP pass.
+Using template $paramod$_DFF_P_\_TECHMAP_WIREINIT_Q_=1'0 for cells of type $_DFF_P_.
+Using template $paramod$_DFF_P_\_TECHMAP_WIREINIT_Q_=1'1 for cells of type $_DFF_P_.
+Using template $_SDFFE_PP0P_ for cells of type $_SDFFE_PP0P_.
 No more expansions possible.
-<suppressed ~104 debug messages>
+<suppressed ~116 debug messages>
 
-5.39. Executing OPT_EXPR pass (perform const folding).
+6.39. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.40. Executing SIMPLEMAP pass (map simple cells to gate primitives).
+6.40. Executing SIMPLEMAP pass (map simple cells to gate primitives).
 
-5.41. Executing LATTICE_GSR pass (implement FF init values).
+6.41. Executing LATTICE_GSR pass (implement FF init values).
 Handling GSR in top.
 
-5.42. Executing ATTRMVCP pass (move or copy attributes).
+6.42. Executing ATTRMVCP pass (move or copy attributes).
 
-5.43. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.43. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
-Removed 0 unused cells and 120 unused wires.
+Removed 0 unused cells and 148 unused wires.
 <suppressed ~1 debug messages>
 
-5.44. Executing CHECK pass (checking for obvious problems).
+6.44. Executing CHECK pass (checking for obvious problems).
 Checking module top...
 Found and reported 0 problems.
 
-5.45. Executing TECHMAP pass (map to technology primitives).
+6.45. Executing TECHMAP pass (map to technology primitives).
 
-5.45.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/latches_map.v
+6.45.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/latches_map.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/latches_map.v' to AST representation.
 Generating RTLIL representation for module `$_DLATCH_N_'.
 Generating RTLIL representation for module `$_DLATCH_P_'.
 Successfully finished Verilog frontend.
 
-5.45.2. Continuing TECHMAP pass.
+6.45.2. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~4 debug messages>
 
-5.46. Executing ABC9 pass.
+6.46. Executing ABC9 pass.
 
-5.46.1. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.1. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.2. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.2. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.3. Executing SCC pass (detecting logic loops).
-Found an SCC: $auto$simplemap.cc:46:simplemap_not$452 $auto$ff.cc:337:slice$302 $auto$simplemap.cc:157:simplemap_reduce$273 $auto$simplemap.cc:46:simplemap_not$453 $auto$ff.cc:337:slice$303 $auto$simplemap.cc:46:simplemap_not$454 $auto$ff.cc:337:slice$304 $auto$simplemap.cc:157:simplemap_reduce$285 $auto$simplemap.cc:157:simplemap_reduce$274 $auto$simplemap.cc:46:simplemap_not$455 $auto$ff.cc:337:slice$305 $auto$simplemap.cc:46:simplemap_not$456 $auto$ff.cc:337:slice$306 $auto$simplemap.cc:157:simplemap_reduce$275 $auto$simplemap.cc:46:simplemap_not$457 $auto$ff.cc:337:slice$307 $auto$ff.cc:337:slice$308 $auto$simplemap.cc:157:simplemap_reduce$292 $auto$simplemap.cc:157:simplemap_reduce$286 $auto$simplemap.cc:157:simplemap_reduce$276 $auto$simplemap.cc:46:simplemap_not$459 $auto$ff.cc:337:slice$309 $auto$ff.cc:337:slice$310 $auto$simplemap.cc:157:simplemap_reduce$277 $auto$ff.cc:337:slice$311 $auto$ff.cc:337:slice$312 $auto$simplemap.cc:157:simplemap_reduce$287 $auto$simplemap.cc:157:simplemap_reduce$278 $auto$ff.cc:337:slice$313 $auto$ff.cc:337:slice$314 $auto$simplemap.cc:157:simplemap_reduce$279 $auto$simplemap.cc:46:simplemap_not$465 $auto$ff.cc:337:slice$315 $auto$simplemap.cc:46:simplemap_not$466 $auto$ff.cc:337:slice$316 $auto$simplemap.cc:157:simplemap_reduce$296 $auto$simplemap.cc:157:simplemap_reduce$293 $auto$simplemap.cc:157:simplemap_reduce$288 $auto$simplemap.cc:157:simplemap_reduce$280 $auto$simplemap.cc:46:simplemap_not$467 $auto$ff.cc:337:slice$317 $auto$ff.cc:337:slice$318 $auto$simplemap.cc:157:simplemap_reduce$281 $auto$ff.cc:337:slice$319 $auto$simplemap.cc:46:simplemap_not$470 $auto$ff.cc:337:slice$320 $auto$simplemap.cc:157:simplemap_reduce$289 $auto$simplemap.cc:157:simplemap_reduce$282 $auto$simplemap.cc:46:simplemap_not$471 $auto$ff.cc:337:slice$321 $auto$simplemap.cc:46:simplemap_not$472 $auto$ff.cc:337:slice$322 $auto$simplemap.cc:157:simplemap_reduce$283 $auto$opt_expr.cc:633:replace_const_cells$526 $auto$ff.cc:337:slice$323 $auto$simplemap.cc:157:simplemap_reduce$298 $auto$simplemap.cc:157:simplemap_reduce$294 $auto$simplemap.cc:157:simplemap_reduce$290 $auto$simplemap.cc:46:simplemap_not$474 $auto$ff.cc:337:slice$324 $auto$simplemap.cc:227:simplemap_lognot$300
-Found 1 SCCs in module top.
-Found 1 SCCs.
+6.46.3. Executing SCC pass (detecting logic loops).
+Found 0 SCCs in module top.
+Found 0 SCCs.
 
-5.46.4. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.4. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.5. Executing TECHMAP pass (map to technology primitives).
+6.46.5. Executing TECHMAP pass (map to technology primitives).
 
-5.46.5.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
+6.46.5.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v' to AST representation.
 Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
 Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
@@ -806,47 +984,47 @@ Generating RTLIL representation for module `$connect'.
 Generating RTLIL representation for module `$input_port'.
 Successfully finished Verilog frontend.
 
-5.46.5.2. Continuing TECHMAP pass.
+6.46.5.2. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~166 debug messages>
 
-5.46.6. Executing OPT pass (performing simple optimizations).
+6.46.6. Executing OPT pass (performing simple optimizations).
 
-5.46.6.1. Executing OPT_EXPR pass (perform const folding).
+6.46.6.1. Executing OPT_EXPR pass (perform const folding).
 
-5.46.6.2. Executing OPT_MERGE pass (detect identical cells).
+6.46.6.2. Executing OPT_MERGE pass (detect identical cells).
 Removed a total of 0 cells.
 
-5.46.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.46.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
 Removed 0 multiplexer ports.
 
-5.46.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.46.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
 Performed a total of 0 changes.
 
-5.46.6.5. Executing OPT_MERGE pass (detect identical cells).
+6.46.6.5. Executing OPT_MERGE pass (detect identical cells).
 Removed a total of 0 cells.
 
-5.46.6.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.46.6.6. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.46.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.46.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
 
-5.46.6.8. Executing OPT_EXPR pass (perform const folding).
+6.46.6.8. Executing OPT_EXPR pass (perform const folding).
 
-5.46.6.9. Finished fast OPT passes. (There is nothing left to do.)
+6.46.6.9. Finished fast OPT passes. (There is nothing left to do.)
 
-5.46.7. Executing TECHMAP pass (map to technology primitives).
+6.46.7. Executing TECHMAP pass (map to technology primitives).
 
-5.46.7.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_map.v
+6.46.7.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_map.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_map.v' to AST representation.
 Lexer warning: The SystemVerilog keyword `bit' (at /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_map.v:35) is not recognized unless read_verilog is called with -sv!
 Generating RTLIL representation for module `$__ABC9_BARRIER_MAP'.
 Successfully finished Verilog frontend.
 
-5.46.7.2. Continuing TECHMAP pass.
+6.46.7.2. Continuing TECHMAP pass.
 No more expansions possible.
 <suppressed ~3 debug messages>
 
-5.46.8. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_model.v
+6.46.8. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_model.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_model.v' to AST representation.
 Generating RTLIL representation for module `$__ABC9_DELAY'.
 Generating RTLIL representation for module `$__ABC9_BARRIER'.
@@ -855,17 +1033,17 @@ Generating RTLIL representation for module `$__DFF_N__$abc9_flop'.
 Generating RTLIL representation for module `$__DFF_P__$abc9_flop'.
 Successfully finished Verilog frontend.
 
-5.46.9. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.9. Executing ABC9_OPS pass (helper functions for ABC9).
 <suppressed ~2 debug messages>
 
-5.46.10. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.10. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.11. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.11. Executing ABC9_OPS pass (helper functions for ABC9).
 <suppressed ~2 debug messages>
 
-5.46.12. Executing TECHMAP pass (map to technology primitives).
+6.46.12. Executing TECHMAP pass (map to technology primitives).
 
-5.46.12.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
+6.46.12.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/techmap.v' to AST representation.
 Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
 Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
@@ -894,7 +1072,7 @@ Generating RTLIL representation for module `$connect'.
 Generating RTLIL representation for module `$input_port'.
 Successfully finished Verilog frontend.
 
-5.46.12.2. Continuing TECHMAP pass.
+6.46.12.2. Continuing TECHMAP pass.
 Using template $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C for cells of type $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C.
 Using extmapper simplemap for cells of type $or.
 Using extmapper simplemap for cells of type $and.
@@ -906,13 +1084,13 @@ Using extmapper simplemap for cells of type $mux.
 No more expansions possible.
 <suppressed ~204 debug messages>
 
-5.46.13. Executing OPT pass (performing simple optimizations).
+6.46.13. Executing OPT pass (performing simple optimizations).
 
-5.46.13.1. Executing OPT_EXPR pass (perform const folding).
+6.46.13.1. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 <suppressed ~18 debug messages>
 
-5.46.13.2. Executing OPT_MERGE pass (detect identical cells).
+6.46.13.2. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
 Computing hashes of 59 cells of `\top'.
 Finding duplicate cells in `\top'.
@@ -921,150 +1099,151 @@ Finding duplicate cells in `\top'.
 <suppressed ~6 debug messages>
 Removed a total of 2 cells.
 
-5.46.13.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.46.13.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
 Running muxtree optimizer on module \top..
   Creating internal representation of mux trees.
   No muxes found in this module.
 Removed 0 multiplexer ports.
 
-5.46.13.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.46.13.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
   Optimizing cells in module \top.
 Performed a total of 0 changes.
 
-5.46.13.5. Executing OPT_MERGE pass (detect identical cells).
+6.46.13.5. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
 Computing hashes of 57 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.46.13.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.46.13.6. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.46.13.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.46.13.7. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 Removed 0 unused cells and 55 unused wires.
 <suppressed ~1 debug messages>
 
-5.46.13.8. Executing OPT_EXPR pass (perform const folding).
+6.46.13.8. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.46.13.9. Rerunning OPT passes. (Maybe there is more to do..)
+6.46.13.9. Rerunning OPT passes. (Maybe there is more to do..)
 
-5.46.13.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.46.13.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
 Running muxtree optimizer on module \top..
   Creating internal representation of mux trees.
   No muxes found in this module.
 Removed 0 multiplexer ports.
 
-5.46.13.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.46.13.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
   Optimizing cells in module \top.
 Performed a total of 0 changes.
 
-5.46.13.12. Executing OPT_MERGE pass (detect identical cells).
+6.46.13.12. Executing OPT_MERGE pass (detect identical cells).
 Finding identical cells in module `\top'.
 Computing hashes of 57 cells of `\top'.
 Finding duplicate cells in `\top'.
 Removed a total of 0 cells.
 
-5.46.13.13. Executing OPT_DFF pass (perform DFF optimizations).
+6.46.13.13. Executing OPT_DFF pass (perform DFF optimizations).
 
-5.46.13.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.46.13.14. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \top..
 
-5.46.13.15. Executing OPT_EXPR pass (perform const folding).
+6.46.13.15. Executing OPT_EXPR pass (perform const folding).
 Optimizing module top.
 
-5.46.13.16. Finished fast OPT passes. (There is nothing left to do.)
+6.46.13.16. Finished fast OPT passes. (There is nothing left to do.)
 
-5.46.14. Executing AIGMAP pass (map logic to AIG).
-Module top: replaced 22 cells with 88 new cells, skipped 54 cells.
-  replaced 1 cell types:
-      22 $_OR_
-  not replaced 4 cell types:
-      17 $_NOT_
-       1 $__ABC9_SCC_BREAKER
-      24 TRELLIS_FF
-      12 $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C
+6.46.14. Executing AIGMAP pass (map logic to AIG).
+Module top: replaced 26 cells with 125 new cells, skipped 55 cells.
+  replaced 2 cell types:
+       7 $_MUX_
+      19 $_OR_
+  not replaced 5 cell types:
+      10 $_AND_
+      14 $_NOT_
+       1 $scopeinfo
+      27 TRELLIS_FF
+       3 $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C
 
-5.46.14.1. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.14.1. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.14.2. Executing ABC9_OPS pass (helper functions for ABC9).
+6.46.14.2. Executing ABC9_OPS pass (helper functions for ABC9).
 
-5.46.14.3. Executing XAIGER2 backend.
-<suppressed ~47 debug messages>
-Extracted 85 AND gates and 0 wires from module `top' to a netlist network with 62 inputs and 184 outputs.
+6.46.14.3. Executing XAIGER2 backend.
+<suppressed ~42 debug messages>
+Extracted 83 AND gates and 0 wires from module `top' to a netlist network with 40 inputs and 128 outputs.
 
-5.46.14.4. Executing ABC9_EXE pass (technology mapping using ABC9).
+6.46.14.4. Executing ABC9_EXE pass (technology mapping using ABC9).
 
-5.46.14.5. Executing ABC9.
+6.46.14.5. Executing ABC9.
 Running ABC command: "<yosys-exe-dir>/yosys-abc" -s -f <abc-temp-dir>/abc.script 2>&1
 ABC: ======== ABC command line "source <abc-temp-dir>/abc.script"
 ABC: + read_lut <abc-temp-dir>/input.lut 
 ABC: + read_box <abc-temp-dir>/input.box 
 ABC: + &read <abc-temp-dir>/input.xaig 
 ABC: + &ps 
-ABC: <abc-temp-dir>/input : i/o =     26/     76  and =      22  lev =    5 (0.03)  mem = 0.01 MB  box = 12  bb = 0
+ABC: <abc-temp-dir>/input : i/o =     31/    101  and =      38  lev =    8 (0.95)  mem = 0.00 MB  box = 3  bb = 0
 ABC: + &scorr 
 ABC: Warning: The network is combinational.
 ABC: + &sweep 
 ABC: + &dc2 
 ABC: + &dch -f -r 
 ABC: + &ps 
-ABC: <abc-temp-dir>/input : i/o =     26/     76  and =      31  lev =    5 (0.03)  mem = 0.01 MB  ch =    3  box = 12  bb = 0
-ABC: cst =       0  cls =      3  lit =       3  unused =      87  proof =     0
+ABC: <abc-temp-dir>/input : i/o =     31/    101  and =      43  lev =    6 (0.73)  mem = 0.00 MB  ch =    4  box = 3  bb = 0
+ABC: cst =       0  cls =      4  lit =       4  unused =      75  proof =     0
 ABC: + &if -W 300 -v 
 ABC: K = 7. Memory (bytes): Truth =    0. Cut =   80. Obj =  160. Set =  816. CutMin = no
-ABC: Node =      31.  Ch =     3.  Total mem =    0.05 MB. Peak cut mem =    0.00 MB.
-ABC: P:  Del = 1612.00.  Ar =      23.0.  Edge =       28.  Cut =      186.  T =     0.00 sec
-ABC: P:  Del = 1612.00.  Ar =      23.0.  Edge =       28.  Cut =      186.  T =     0.00 sec
-ABC: P:  Del = 1612.00.  Ar =      17.0.  Edge =       28.  Cut =      234.  T =     0.00 sec
-ABC: F:  Del = 1581.00.  Ar =       9.0.  Edge =       29.  Cut =      137.  T =     0.00 sec
-ABC: A:  Del = 1581.00.  Ar =       9.0.  Edge =       29.  Cut =      115.  T =     0.00 sec
-ABC: A:  Del = 1581.00.  Ar =       9.0.  Edge =       29.  Cut =      114.  T =     0.00 sec
+ABC: Node =      43.  Ch =     4.  Total mem =    0.04 MB. Peak cut mem =    0.01 MB.
+ABC: P:  Del = 1164.00.  Ar =      48.0.  Edge =       57.  Cut =      316.  T =     0.00 sec
+ABC: P:  Del = 1164.00.  Ar =      48.0.  Edge =       57.  Cut =      316.  T =     0.00 sec
+ABC: P:  Del = 1164.00.  Ar =      47.0.  Edge =       56.  Cut =      428.  T =     0.00 sec
+ABC: F:  Del = 1164.00.  Ar =      47.0.  Edge =       56.  Cut =      290.  T =     0.00 sec
+ABC: A:  Del = 1164.00.  Ar =      47.0.  Edge =       52.  Cut =      290.  T =     0.00 sec
+ABC: A:  Del = 1164.00.  Ar =      47.0.  Edge =       52.  Cut =      290.  T =     0.00 sec
 ABC: Total time =     0.00 sec
 ABC: + &write -n <abc-temp-dir>/output.aig 
 ABC: + &mfs 
 ABC: The network is not changed by "&mfs".
 ABC: + &ps -l 
-ABC: <abc-temp-dir>/input : i/o =     26/     76  and =      22  lev =    5 (0.03)  mem = 0.01 MB  box = 12  bb = 0
-ABC: Mapping (K=5)  :  lut =      7  edge =      29  lev =    3 (0.02)  levB =   12  mem = 0.00 MB
-ABC: LUT = 7 : 2=0 0.0 %  3=1 14.3 %  4=4 57.1 %  5=2 28.6 %  Ave = 4.14
+ABC: <abc-temp-dir>/input : i/o =     31/    101  and =      50  lev =    6 (0.73)  mem = 0.00 MB  box = 3  bb = 0
+ABC: Mapping (K=7)  :  lut =     12  edge =      52  lev =    2 (0.38)  levB =    3  mem = 0.00 MB
+ABC: LUT = 12 : 2=5 41.7 %  3=1 8.3 %  4=1 8.3 %  5=0 0.0 %  6=0 0.0 %  7=5 41.7 %  Ave = 4.33
 ABC: + &write -n <abc-temp-dir>/output.aig 
 ABC: + &verify 
 ABC: Networks are equivalent.  Time =     0.00 sec
 ABC: + time 
 ABC: elapse: 0.01 seconds, total: 0.01 seconds
 
-5.46.14.6. Executing AIGER frontend.
+6.46.14.6. Executing AIGER frontend.
 <suppressed ~10 debug messages>
-Removed 23 unused cells and 220 unused wires.
+Removed 67 unused cells and 152 unused wires.
 
-5.46.14.7. Executing ABC_OPS_REINTEGRATE pass (reintegrate ABC mapped design into module).
-ABC RESULTS:              $lut cells:        9
-ABC RESULTS:   $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C cells:       12
-ABC RESULTS:           input signals:        4
+6.46.14.7. Executing ABC_OPS_REINTEGRATE pass (reintegrate ABC mapped design into module).
+ABC RESULTS:              $lut cells:       13
+ABC RESULTS:   $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C cells:        3
+ABC RESULTS:           input signals:       10
 ABC RESULTS:          output signals:        3
-<suppressed ~102 debug messages>
+<suppressed ~132 debug messages>
 Removing temp directory.
 
-5.46.15. Executing TECHMAP pass (map to technology primitives).
+6.46.15. Executing TECHMAP pass (map to technology primitives).
 
-5.46.15.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_unmap.v
+6.46.15.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_unmap.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/abc9_unmap.v' to AST representation.
 Generating RTLIL representation for module `$__DFF_x__$abc9_flop'.
 Generating RTLIL representation for module `$__ABC9_SCC_BREAKER'.
 Generating RTLIL representation for module `$__ABC9_BARRIER'.
 Successfully finished Verilog frontend.
 
-5.46.15.2. Continuing TECHMAP pass.
+6.46.15.2. Continuing TECHMAP pass.
 Using template $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C for cells of type $paramod$838872d5a4bab89607f53482b205c0fd50d8b82e\CCU2C.
-Using template $paramod$__ABC9_SCC_BREAKER\WIDTH=32'00000000000000000000000000000001 for cells of type $__ABC9_SCC_BREAKER.
 No more expansions possible.
-<suppressed ~29 debug messages>
-Removed 0 unused cells and 285 unused wires.
+<suppressed ~10 debug messages>
+Removed 3 unused cells and 196 unused wires.
 
-5.47. Executing TECHMAP pass (map to technology primitives).
+6.47. Executing TECHMAP pass (map to technology primitives).
 
-5.47.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v
+6.47.1. Executing Verilog-2005 frontend: /home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v
 Parsing Verilog input from `/home/jak/tools/oss-cad-suite/lib/../share/yosys/lattice/cells_map_trellis.v' to AST representation.
 Generating RTLIL representation for module `$_DFF_N_'.
 Generating RTLIL representation for module `$_DFF_P_'.
@@ -1138,85 +1317,121 @@ Generating RTLIL representation for module `\OLVDS'.
 Generating RTLIL representation for module `$lut'.
 Successfully finished Verilog frontend.
 
-5.47.2. Continuing TECHMAP pass.
-Using template $paramod$a5516fc31d1e552de2435200bb732b4d4ad63a9c$lut for cells of type $lut.
-Using template $paramod$101238f3d8d49ab12a9b49a2f01cd503b26e9c61$lut for cells of type $lut.
-Using template $paramod$lut\WIDTH=32'00000000000000000000000000000011\LUT=8'10000000 for cells of type $lut.
-Using template $paramod$272652f6c6fbe9a75eff76e45cc7e2788835518b$lut for cells of type $lut.
-Using template $paramod$571404c0889eaf57f492cb5e37f8acb5df5852f9$lut for cells of type $lut.
-Using template $paramod$251994398653c4cf8de320f1e306e535d5d2d624$lut for cells of type $lut.
+6.47.2. Continuing TECHMAP pass.
+Using template $paramod$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0001 for cells of type $lut.
+Using template $paramod$658b9ed803f0d3d335616d3858b53e0a2522f1e8$lut for cells of type $lut.
+Using template $paramod$b12bf8b3d3a35444f0dac3518aabb7d4365a4282$lut for cells of type $lut.
+Using template $paramod$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0100 for cells of type $lut.
+Using template $paramod$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0010 for cells of type $lut.
+Using template $paramod$2af4555ef2daf8d9c9a37b0953996d007f13e65e$lut for cells of type $lut.
+Using template $paramod$lut\WIDTH=32'00000000000000000000000000000011\LUT=8'01000000 for cells of type $lut.
 Using template $paramod$lut\WIDTH=32'00000000000000000000000000000001\LUT=2'01 for cells of type $lut.
+Using template $paramod$785ad84353341bd094faf5fdb9c3c6c1c87865b3$lut for cells of type $lut.
 No more expansions possible.
-<suppressed ~158 debug messages>
+<suppressed ~184 debug messages>
 
-5.48. Executing OPT_LUT_INS pass (discard unused LUT inputs).
+6.48. Executing OPT_LUT_INS pass (discard unused LUT inputs).
 Optimizing LUTs in top.
-  Optimizing lut $abc$2789$lut$aiger$o180.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
-  Optimizing lut $abc$2789$lut$aiger2788$69.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
-Removed 0 unused cells and 22 unused wires.
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut1 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut2 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut3 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut4 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut5 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut1 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut2 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut3 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut4 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut5 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut1 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut2 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut3 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut4 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut5 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut2 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut3 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut4 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut7 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut2 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut3 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut4 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut5 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut7 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2909.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2908.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut1 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o119.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut1 (4 -> 0)
+  Optimizing lut $abc$2906$lut$aiger$o67.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
+  Optimizing lut $auto$abc_ops_reintegrate.cc:722:reintegrate$2910.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.genblk1.lut0 (4 -> 0)
+Removed 0 unused cells and 26 unused wires.
 
-5.49. Executing AUTONAME pass.
-Renamed 94 objects in module top.
-<suppressed ~94 debug messages>
+6.49. Executing AUTONAME pass.
+Renamed 205 objects in module top.
+<suppressed ~205 debug messages>
 
-5.50. Executing HIERARCHY pass (managing design hierarchy).
+6.50. Executing HIERARCHY pass (managing design hierarchy).
 Attribute `top' found on module `top'. Setting top module to top.
 
-5.50.1. Analyzing design hierarchy..
+6.50.1. Analyzing design hierarchy..
 Top module:  \top
 
-5.50.2. Analyzing design hierarchy..
+6.50.2. Analyzing design hierarchy..
 Top module:  \top
 Removed 0 unused modules.
 
-5.51. Printing statistics.
+6.51. Printing statistics.
 
 === top ===
 
         +----------Local Count, excluding submodules.
         | 
-       51 wires
-       81 wire bits
-       51 public wires
-       81 public wire bits
-        4 ports
-        4 port bits
-       49 submodules
-       12   CCU2C
-       11   LUT4
-        2   PFUMX
-       24   TRELLIS_FF
+      109 wires
+      150 wire bits
+      109 public wires
+      150 public wire bits
+        7 ports
+        7 port bits
+        1 cells
+        1   $scopeinfo
+      113 submodules
+        3   CCU2C
+       15   L6MUX21
+       48   LUT4
+       20   PFUMX
+       27   TRELLIS_FF
 
 === design hierarchy ===
 
         +----------Count including submodules.
         | 
-        - top
+        1 top
 
         +----------Count including submodules.
         | 
-       51 wires
-       81 wire bits
-       51 public wires
-       81 public wire bits
-        4 ports
-        4 port bits
+      109 wires
+      150 wire bits
+      109 public wires
+      150 public wire bits
+        7 ports
+        7 port bits
         - memories
         - memory bits
         - processes
-        - cells
-       49 submodules
-       12   CCU2C
-       11   LUT4
-        2   PFUMX
-       24   TRELLIS_FF
+        1 cells
+        1   $scopeinfo
+      113 submodules
+        3   CCU2C
+       15   L6MUX21
+       48   LUT4
+       20   PFUMX
+       27   TRELLIS_FF
 
-5.52. Executing CHECK pass (checking for obvious problems).
+6.52. Executing CHECK pass (checking for obvious problems).
 Checking module top...
 Found and reported 0 problems.
 
-5.53. Executing JSON backend.
+6.53. Executing JSON backend.
 
-End of script. Logfile hash: c98a91d83d, time: 0.24s, user: 0.20s, system: 0.03s, MEM: 32.13 MB peak
+End of script. Logfile hash: 9f64c34fa8, time: 0.26s, user: 0.21s, system: 0.04s, MEM: 30.92 MB peak
 Yosys 0.71+59 (git sha1 d9358f38c, Release, Clang /usr/bin/clang++ 21.1.8)
-Time spent: 63% 21x read_verilog (0 sec), 8% 1x abc9_exe (0 sec), ...
+Time spent: 60% 22x read_verilog (0 sec), 8% 1x abc9_exe (0 sec), ...

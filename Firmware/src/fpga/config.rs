@@ -1,5 +1,8 @@
 use embassy_stm32::gpio::{Input, Level, Output, OutputOpenDrain, Pull, Speed};
 use embassy_time::{Duration, Instant, Timer};
+use embassy_stm32::mode::Blocking;
+use embassy_stm32::spi::{self, Spi};
+use embassy_stm32::time::Hertz;
 use crate::config::FpgaPins;
 
 pub struct Fpga {
@@ -8,12 +11,19 @@ pub struct Fpga {
     done: Input<'static>,               // PB14
     cfg: [Output<'static>; 3],          // PB15, PD8, PD9
     irq: Input<'static>,                // PC10
+    spi: Spi<'static, Blocking, spi::mode::Master>,
+    cs: Output<'static>,
 }
 
 impl Fpga {
     /// Take the pins. Hold PROGRAMN low from the start, so the FPGA stays
     /// off the flash bus until we deliberately boot it.
     pub fn new(pins: FpgaPins) -> Self {
+        let mut spi_cfg = spi::Config::default();
+        spi_cfg.frequency = Hertz(1_000_000);
+        spi_cfg.mode = spi::MODE_0;
+        spi_cfg.miso_pull = Pull::Down;
+
         Self {
             programn: OutputOpenDrain::new(pins.programn, Level::Low, Speed::Low),
             initn: Input::new(pins.initn, Pull::None),
@@ -24,6 +34,10 @@ impl Fpga {
                 Output::new(pins.cfg2, Level::Low, Speed::Low)
             ],
             irq: Input::new(pins.irq, Pull::Down),
+            spi: Spi::new_blocking(pins.spi, pins.sck,
+                                   pins.mosi, pins.miso, spi_cfg),
+            cs: Output::new(pins.cs, Level::High, Speed::Low),
+        
         }
     }
 
@@ -51,6 +65,20 @@ impl Fpga {
         }
         !previous_value
     }
+
+    fn command(&mut self, buf: &mut [u8]) -> Result<(), spi::Error> {
+        self.cs.set_low();
+        let r = self.spi.blocking_transfer_in_place(buf);
+        self.cs.set_high();
+        r
+    }
+
+    pub fn read_id(&mut self) -> Result<u8, spi::Error> {
+        let mut buf = [0x01, 0x00];
+        let r = self.command(&mut buf);
+        r.map(|_| buf[1])
+    }
+    
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }

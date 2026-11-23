@@ -1,6 +1,10 @@
 module top (
     input  logic clk,
-    output logic fpga_irq,
+
+    input logic mcu_sck, mcu_cs, mcu_mosi,
+    output logic mcu_miso,
+    
+    // output logic mcu_irq,
     output logic rf_shdn_n,
     output logic rf_idle_n
 );
@@ -8,18 +12,20 @@ module top (
     assign rf_shdn_n = 1'b1;
     assign rf_idle_n = 1'b1;
 
-    logic [22:0] counter = '0;
-    logic        irq_q = 1'b0;
-
-    assign fpga_irq = irq_q;
-
-    always_ff @(posedge clk) begin
-        if (counter == 23'd8_183_999) begin
-            counter <= '0;
-            irq_q <= ~irq_q;
-        end else begin
-            counter <= counter + 1'b1;
-        end
-    end
+    mcu_spi spi (
+        .clk      (clk),
+        .mcu_sck  (mcu_sck),
+        .mcu_cs   (mcu_cs),
+        .mcu_mosi (mcu_mosi),
+        .mcu_miso (mcu_miso)
+    );
 
 endmodule
+
+//  todo 
+//      make spi driver
+//          ill give it an id to be read back
+//      bring up the max
+//      capture raw samples from I and Q and hold them in fpga ram, then get them onto a file to analyse them
+//      prove that a python script can find the correlations
+//      tracking, navigation data, position fix

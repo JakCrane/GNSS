@@ -33,6 +33,7 @@ async fn main(spawner: Spawner) {
         chip_config.rcc.sys = Sysclk::HSI;
         chip_config.rcc.voltage_scale = VoltageScale::Scale3;
         chip_config.rcc.mux.usbsel = mux::Usbsel::HSI48;
+        chip_config.rcc.mux.spi123sel = mux::Saisel::PER;
     }
     let board = config::Board::new(embassy_stm32::init(chip_config));
 
@@ -43,7 +44,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(usb::run(device).unwrap());
     spawner.spawn(commands::run(rx).unwrap());
 
-        // Once at power-up: make sure the NOR holds our bitstream, then boot the FPGA from it.
+    // Once at power-up: make sure the NOR holds our bitstream, then boot the FPGA from it.
     let written = {
         let held = fpga.hold_in_reset();
         let mut bus = flash.bus(&held);
@@ -78,16 +79,16 @@ async fn main(spawner: Spawner) {
         };
         let _ = usb::write_str(&mut tx, msg).await;
 
-        let start = Instant::now();
         while tx.dtr() {
             let mut line: String<64> = String::new();
-            match with_timeout(Duration::from_secs(2), fpga.wait_irq_change()).await {
-                Ok(level) => { let _ = write!(line, "irq={} t={}ms\r\n", level as u8, start.elapsed().as_millis()); }
-                Err(_) => { let _ = line.push_str("irq: no edge in 2 s\r\n"); }
+            match fpga.read_id() {
+                Ok(id) => { let _ = write!(line, "id=0x{:02x}\r\n", id); }
+                Err(_) => { let _ = line.push_str("id: SPI error\r\n"); }
             }
             if usb::write_str(&mut tx, &line).await.is_err() {
                 break;
             }
+            Timer::after_secs(1).await;
         }
     }
 }
