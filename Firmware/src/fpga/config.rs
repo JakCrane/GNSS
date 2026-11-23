@@ -85,6 +85,17 @@ impl Fpga {
         r.map(|_| buf[1])
     }
     
+    pub fn read_i0(&mut self) -> Result<u8, spi::Error> {
+        let mut buf = [0x03, 0x00];
+        let r = self.command(&mut buf);
+        r.map(|_| buf[1])
+    }
+
+    pub fn read_i1(&mut self) -> Result<u8, spi::Error> {
+        let mut buf = [0x04, 0x00];
+        let r = self.command(&mut buf);
+        r.map(|_| buf[1])
+    }
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }
