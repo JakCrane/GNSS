@@ -85,6 +85,12 @@ async fn main(spawner: Spawner) {
                 Ok(id) => { let _ = write!(line, "id=0x{:02x}\r\n", id); }
                 Err(_) => { let _ = line.push_str("id: SPI error\r\n"); }
             }
+
+            match fpga.read_ld() {
+                Ok(ld) => { let _ = write!(line, "ld=0x{:02x}\r\n", ld); }
+                Err(_) => { let _ = line.push_str("ld: SPI error\r\n"); }
+            }
+
             if usb::write_str(&mut tx, &line).await.is_err() {
                 break;
             }

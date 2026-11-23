@@ -13,3 +13,5 @@ production/backups/
 
 # KiCad local history (its own git repo)
 .history/
+
+/Gateware/build

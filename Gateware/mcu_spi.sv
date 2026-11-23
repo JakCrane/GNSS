@@ -1,12 +1,16 @@
 module mcu_spi (
     input logic clk,
     input logic mcu_sck, mcu_cs, mcu_mosi,
-    output logic mcu_miso
+    output logic mcu_miso,
+
+    input logic rf_ld
 );
 
     logic [1:0] cs_s   = '1; // read multiple times and ignore the first one to ensure youre reading the settled value and idles high
     logic [1:0] mosi_s = '0; // _s for synchronised and idles low
     logic [2:0] sck_s  = '0; // _s for synchronised and idles low
+
+    logic [1:0] ld_s = '0;
 
     logic [5:0] bit_cnt = '0; // where you are in the frame
     logic [7:0] cmd     = '0;
@@ -33,6 +37,7 @@ module mcu_spi (
             if (bit_cnt == 7) begin
                 case (cmd_next)
                     8'h01:   sh_out <= 8'h5A;   // read ID
+                    8'h02:   sh_out <= {7'b0, ld_s[1]};
                     default: sh_out <= 8'h00;   // unknown command
                 endcase
             end
@@ -49,6 +54,7 @@ module mcu_spi (
         cs_s   <= {cs_s[0],    mcu_cs};
         mosi_s <= {mosi_s[0],  mcu_mosi};
         sck_s  <= {sck_s[1:0], mcu_sck};
+        ld_s   <= {ld_s[0],    rf_ld};
     end
 endmodule 
 

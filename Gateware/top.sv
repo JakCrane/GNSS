@@ -6,7 +6,8 @@ module top (
     
     // output logic mcu_irq,
     output logic rf_shdn_n,
-    output logic rf_idle_n
+    output logic rf_idle_n,
+    input logic rf_ld
 );
     // Need to pull these high for the chip to work which supplies the TCXO -> clk
     assign rf_shdn_n = 1'b1;
@@ -17,7 +18,8 @@ module top (
         .mcu_sck  (mcu_sck),
         .mcu_cs   (mcu_cs),
         .mcu_mosi (mcu_mosi),
-        .mcu_miso (mcu_miso)
+        .mcu_miso (mcu_miso),
+        .rf_ld    (rf_ld)
     );
 
 endmodule
