@@ -1,45 +1,44 @@
 module mcu_spi (
     input logic clk,
-    input logic mcu_sck, mcu_cs, mcu_mosi,
+
+    input  logic mcu_sck, mcu_cs, mcu_mosi,
     output logic mcu_miso,
 
-    input logic rf_ld
+    output logic [7:0] cmd,
+    output logic       cmd_valid,
+    input  logic [7:0] reply 
 );
 
     logic [1:0] cs_s   = '1; // read multiple times and ignore the first one to ensure youre reading the settled value and idles high
     logic [1:0] mosi_s = '0; // _s for synchronised and idles low
     logic [2:0] sck_s  = '0; // _s for synchronised and idles low
 
-    logic [1:0] ld_s = '0;
-
     logic [5:0] bit_cnt = '0; // where you are in the frame
-    logic [7:0] cmd     = '0;
+    logic [7:0] cmd_sr  = '0;
     logic [7:0] sh_out  = '0;
 
     wire active = !cs_s[1]; // active when cs low
     wire sck_rise = (sck_s[2:1] == 2'b01);
     wire sck_fall = (sck_s[2:1] == 2'b10);
 
-    wire [7:0] cmd_next = {cmd[6:0], mosi_s[1]};
+    wire [7:0] cmd_next = {cmd_sr[6:0], mosi_s[1]};
     
     assign mcu_miso = sh_out[7];
+    assign cmd = cmd_next;
+    assign cmd_valid = (active && sck_rise && bit_cnt == 7);
 
     always_ff @(posedge clk) begin // if it was clocked on mcu_sck then you couldnt perfrom the active check
         if (!active) begin
             bit_cnt <= '0;
-            cmd <= 0;
+            cmd_sr <= 0;
             sh_out <= '0;
         end else if (sck_rise) begin
             if (bit_cnt < 8) begin
-                cmd <= {cmd[6:0], mosi_s[1]}; // MSB-first        
+                cmd_sr <= {cmd_sr[6:0], mosi_s[1]}; // MSB-first        
             end
 
-            if (bit_cnt == 7) begin
-                case (cmd_next)
-                    8'h01:   sh_out <= 8'h5A;   // read ID
-                    8'h02:   sh_out <= {7'b0, ld_s[1]};
-                    default: sh_out <= 8'h00;   // unknown command
-                endcase
+            if (bit_cnt == 7) begin // also command valid point
+                sh_out <= reply;
             end
 
             bit_cnt <= bit_cnt + 1'b1;
@@ -54,7 +53,6 @@ module mcu_spi (
         cs_s   <= {cs_s[0],    mcu_cs};
         mosi_s <= {mosi_s[0],  mcu_mosi};
         sck_s  <= {sck_s[1:0], mcu_sck};
-        ld_s   <= {ld_s[0],    rf_ld};
     end
 endmodule 
 
