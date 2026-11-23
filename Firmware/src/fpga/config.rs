@@ -96,9 +96,38 @@ impl Fpga {
         let r = self.command(&mut buf);
         r.map(|_| buf[1])
     }
+
+    pub fn query(&mut self, cmd: u8) -> Result<u8, spi::Error> {
+        let mut buf = [cmd, 0x00];
+        self.command(&mut buf).map(|_| buf[1])
+    }
+
+    pub async fn capture(&mut self) -> Result<(), CaptureErr> {
+        self.query(0x10)?;                                   // start
+        let start = Instant::now();
+        while self.query(0x11)? != 0 {                       // poll busy
+            if start.elapsed() > Duration::from_millis(100) {
+                return Err(CaptureErr::Timeout);
+            }
+            Timer::after_millis(1).await;
+        }
+        Ok(())
+    }
+
+    pub fn capture_next(&mut self) -> Result<u8, spi::Error> {
+        self.query(0x12)
+    }
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }
+
+pub const CAPTURE_BYTES: usize = 32768;
+
+pub enum CaptureErr { Spi, Timeout }
+
+impl From<spi::Error> for CaptureErr {
+    fn from(_: spi::Error) -> Self { CaptureErr::Spi }
+}
 
 pub struct HeldInReset<'fpga_lifetime> {
     fpga: &'fpga_lifetime mut Fpga,

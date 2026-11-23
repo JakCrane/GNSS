@@ -26,7 +26,10 @@ module top (
     logic [7:0] ratio0;
     logic [7:0] ratio1;
 
-    sync2 ld_sync_i (
+    logic busy;
+    logic [7:0] rdata;
+
+    sync2  #(.INIT(1'b0)) ld_sync_i ( // parameter redundant for now but for readability
         .clk(clk), 
         .raw_data(rf_ld),
         .synchronised_data(ld_sync)
@@ -61,9 +64,14 @@ module top (
             8'h02:   reply = {7'b0, ld_sync};     // PLL lock
             8'h03:   reply = ratio0;              // number of 1s in mag
             8'h04:   reply = ratio1;              // number of 1s in dir
+            8'h11:   reply = {7'b0, busy};        // still capturing?
+            8'h12:   reply = rdata;               // give me the next byte of data
             default: reply = 8'h00;
         endcase
     end
+
+    wire cap_start = cmd_valid && (cmd == 8'h10);
+    wire cap_next  = cmd_valid && (cmd == 8'h12);
 
     ones_counter counter0 (
         .clk    (clk),
@@ -75,6 +83,15 @@ module top (
         .clk    (clk),
         .bit_in (i1_sync),
         .ratio  (ratio1)
+    );
+
+    capture cap (
+        .clk        (clk),
+        .sample     ({i0_sync, i1_sync}), // mag, sign
+        .start      (cap_start),
+        .ready_next (cap_next),
+        .busy       (busy),
+        .rdata      (rdata)
     );
 
 

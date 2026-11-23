@@ -79,6 +79,25 @@ async fn main(spawner: Spawner) {
         };
         let _ = usb::write_str(&mut tx, msg).await;
 
+        match fpga.capture().await {
+            Ok(()) => {
+                let _ = usb::write_str(&mut tx, "capture: begin\r\n").await;
+                for _ in 0..fpga::CAPTURE_BYTES / 16 {
+                    let mut line: String<40> = String::new();
+                    for _ in 0..16 {
+                        let b = fpga.capture_next().unwrap_or(0);
+                        let _ = write!(line, "{:02x}", b);
+                    }
+                    let _ = line.push_str("\r\n");
+                    if usb::write_str(&mut tx, &line).await.is_err() {
+                        break;
+                    }
+                }
+                let _ = usb::write_str(&mut tx, "capture: end\r\n").await;
+            }
+            Err(_) => { let _ = usb::write_str(&mut tx, "capture: failed\r\n").await; }
+        }
+        
         while tx.dtr() {
             let mut line: String<64> = String::new();
             match fpga.read_id() {
