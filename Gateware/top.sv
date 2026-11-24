@@ -98,9 +98,7 @@ module top (
 endmodule
 
 //  todo 
-//      make spi driver
-//          ill give it an id to be read back
-//      bring up the max
-//      capture raw samples from I and Q and hold them in fpga ram, then get them onto a file to analyse them
-//      prove that a python script can find the correlations
-//      tracking, navigation data, position fix
+//      C/A genertor
+//      code nco
+//      carrier nco and mixer
+//      correlators

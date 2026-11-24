@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!-- GPS C/A code generator demo: steps the G1/G2 shift registers one chip at a time. Open in any browser. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPS C/A code generator demo</title>
+<style>
+:root{--fg:#1a1a1a;--fg2:#5f5e5a;--fg3:#888780;--bg:#fff;--card:#f1efe8;--line:#d3d1c7;--one:#185FA5;--onebg:#E6F1FB;--fb:#0F6E56;--out:#993C1D;--g1:#534AB7;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--fg:#eee;--fg2:#b4b2a9;--fg3:#888780;--bg:#1c1c1c;--card:#2a2a28;--line:#444441;--one:#85B7EB;--onebg:#0C447C;--fb:#5DCAA5;--out:#F0997B;--g1:#AFA9EC}}
+body{margin:20px auto;max-width:940px;padding:0 16px;font-family:system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+h1{font-size:20px;font-weight:500;margin:0 0 10px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+.bar label{color:var(--fg2)}
+button,select{font-size:13px;padding:4px 10px}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:system-ui,sans-serif}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.eq{background:var(--card);border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.8;margin:8px 0}
+.eq b{font-weight:500}
+.k{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 12px;vertical-align:-1px}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,11px);gap:2px;margin-top:6px}
+#grid span{width:11px;height:11px;border-radius:2px;background:var(--line);opacity:.35}
+#grid span.b0{background:var(--card);opacity:1;outline:0.5px solid var(--line)}
+#grid span.b1{background:var(--one);opacity:1}
+#grid span.cur{outline:2px solid var(--out);outline-offset:0}
+.sub{font-size:13px;color:var(--fg2);margin:14px 0 2px}
+</style></head><body>
+<h1>GPS C/A code generator, one clock at a time</h1>
+
+<div class="bar">
+  <label for="prn">PRN</label><select id="prn"></select>
+  <button id="step">Step</button>
+  <button id="play">Play</button>
+  <button id="run">Run to end</button>
+  <button id="reset">Reset</button>
+  <label for="speed">Speed</label><input type="range" id="speed" min="1" max="200" value="8" step="1">
+  <span id="speedv" class="mono">8 chips/s</span>
+</div>
+
+<svg id="svg" viewBox="0 0 920 300" role="img" aria-label="G1 and G2 shift registers with feedback and output taps"></svg>
+
+<div class="eq">
+  <div><span class="k" style="background:var(--fb);margin-left:0"></span>Feedback taps (same for every PRN)<span class="k" style="background:var(--out)"></span>Output taps (this PRN only)<span class="k" style="background:var(--g1)"></span>G1 output (stage 10)</div>
+  <div id="eqOut" class="mono"></div>
+  <div id="eqG1" class="mono"></div>
+  <div id="eqG2" class="mono"></div>
+</div>
+
+<div class="sub">Chips generated: <b id="count" class="mono">0</b> / 1023 · first 10 chips in octal: <b id="oct" class="mono">-</b> <span id="check"></span> · +1/−1 balance: <b id="bal" class="mono">-</b></div>
+<div id="grid"></div>
+<div class="sub" style="font-size:12px;color:var(--fg3)">Blue = bit 1 (transmitted as −1), light = bit 0 (transmitted as +1). After 1023 chips both registers are back to all ones and the code repeats.</div>
+
+<script>
+const TAPS=[[2,6],[3,7],[4,8],[5,9],[1,9],[2,10],[1,8],[2,9],[3,10],[2,3],[3,4],[5,6],[6,7],[7,8],[8,9],[9,10],[1,4],[2,5],[3,6],[4,7],[5,8],[6,9],[1,3],[4,6],[5,7],[6,8],[7,9],[8,10],[1,6],[2,7],[3,8],[4,9]];
+const OCT=[1440,1620,1710,1744,1133,1455,1131,1454,1626,1504,1642,1750,1764,1772,1775,1776,1156,1467,1633,1715,1746,1763,1063,1706,1743,1761,1770,1774,1127,1453,1625,1712];
+const G1FB=[3,10],G2FB=[2,3,6,8,9,10];
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+for(let i=1;i<=32;i++)$('prn').add(new Option('PRN '+i,i));
+let g1,g2,chips,timer=null;
+
+const CX=i=>110+(i-1)*62, CW=52, G1Y=50, G2Y=190, CH=44;
+function el(tag,attrs,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!==undefined)e.textContent=text;return e;}
+const v=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function draw(last){
+  const svg=$('svg');svg.innerHTML='';
+  svg.appendChild(el('defs',{})).innerHTML=`<marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${v('--fg2')}"/></marker>`;
+  const [a,b]=TAPS[+$('prn').value-1];
+  const line=(pts,col,w=1.5,arrow)=>svg.appendChild(el('polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',stroke:col,'stroke-width':w,...(arrow?{'marker-end':'url(#ar)'}:{})}));
+  const xor=(x,y,col,val)=>{svg.appendChild(el('circle',{cx:x,cy:y,r:12,fill:v('--bg'),stroke:col,'stroke-width':1.5}));svg.appendChild(el('text',{x,y:y+5,'text-anchor':'middle','font-size':16,fill:col},'⊕'));
+    if(val!==undefined)svg.appendChild(el('text',{x:x,y:y+30,'text-anchor':'middle','font-size':12,fill:col,class:'mono'},'= '+val));};
+
+  // G1 feedback: taps 3,10 -> bus at y=24 -> xor at (60,72) -> stage 1
+  const fb=v('--fb'),out=v('--out'),gc=v('--g1');
+  G1FB.forEach(s=>line([[CX(s)+CW/2,G1Y],[CX(s)+CW/2,24]],fb));
+  line([[CX(10)+CW/2,24],[60,24],[60,60]],fb);
+  line([[72,72],[CX(1)-2,72]],v('--fg2'),1.5,true);
+  xor(60,72,fb,last?last.f1:undefined);
+  // G2 feedback
+  G2FB.forEach(s=>line([[CX(s)+CW/2,G2Y],[CX(s)+CW/2,164]],fb));
+  line([[CX(10)+CW/2,164],[60,164],[60,200]],fb);
+  line([[72,212],[CX(1)-2,212]],v('--fg2'),1.5,true);
+  xor(60,212,fb,last?last.f2:undefined);
+  // G2 output taps a,b -> bus at y=266 -> xor at (800,266)
+  [a,b].forEach(s=>line([[CX(s)+CW/2,G2Y+CH],[CX(s)+CW/2,266]],out,2));
+  line([[CX(Math.min(a,b))+CW/2,266],[788,266]],out,2);
+  // G1 stage 10 -> final xor
+  line([[CX(10)+CW,72],[850,72],[850,128]],gc,2);
+  line([[800,254],[800,140],[838,140]],out,2);
+  xor(800,266,out,last?last.g2o:undefined);
+  xor(850,140,v('--fg'),undefined);
+  line([[862,140],[900,140]],v('--fg2'),1.5,true);
+  svg.appendChild(el('text',{x:880,y:128,'text-anchor':'middle','font-size':12,fill:v('--fg2')},'chip'));
+  if(last)svg.appendChild(el('text',{x:882,y:162,'text-anchor':'middle','font-size':18,'font-weight':500,fill:v('--fg'),class:'mono'},last.c));
+
+  // registers
+  [[g1,G1Y,'G1',G1FB,[10],gc],[g2,G2Y,'G2',G2FB,[a,b],out]].forEach(([r,y,name,fbs,outs,oc])=>{
+    svg.appendChild(el('text',{x:4,y:y+CH/2+5,'font-size':15,'font-weight':500,fill:v('--fg')},name));
+    for(let s=1;s<=10;s++){const bit=r[s-1],x=CX(s);
+      const isOut=outs.includes(s),isFb=fbs.includes(s);
+      svg.appendChild(el('rect',{x,y,width:CW,height:CH,rx:5,fill:bit?v('--onebg'):v('--bg'),stroke:isOut?oc:(isFb?fb:v('--line')),'stroke-width':isOut||isFb?2.5:1}));
+      svg.appendChild(el('text',{x:x+CW/2,y:y+CH/2+7,'text-anchor':'middle','font-size':20,fill:bit?v('--one'):v('--fg2'),class:'mono'},bit));
+      svg.appendChild(el('text',{x:x+CW-3,y:y+CH+13,'text-anchor':'end','font-size':10,fill:v('--fg3')},s));}
+  });
+}
+
+function eqs(last){
+  const [a,b]=TAPS[+$('prn').value-1];
+  if(!last){$('eqOut').textContent='Press Step to clock the registers. Both start as all ones.';$('eqG1').textContent='';$('eqG2').textContent='';return;}
+  $('eqOut').innerHTML=`<b>Chip ${chips.length-1}:</b> G1[10]=${last.p1[9]} ⊕ G2[${a}]=${last.p2[a-1]} ⊕ G2[${b}]=${last.p2[b-1]} → <b>${last.c}</b>`;
+  $('eqG1').innerHTML=`<b>G1 feedback:</b> ${G1FB.map(s=>`[${s}]=${last.p1[s-1]}`).join(' ⊕ ')} → ${last.f1}, shifted into stage 1`;
+  $('eqG2').innerHTML=`<b>G2 feedback:</b> ${G2FB.map(s=>`[${s}]=${last.p2[s-1]}`).join(' ⊕ ')} → ${last.f2}, shifted into stage 1`;
+}
+
+function buildGrid(){const g=$('grid');g.innerHTML='';for(let i=0;i<1023;i++)g.appendChild(document.createElement('span'));}
+function paintGrid(from){const cells=$('grid').children;for(let i=from;i<chips.length;i++)cells[i].className='b'+chips[i];
+  if(chips.length){cells[chips.length-1].classList.add('cur');if(chips.length>1&&from>0)cells[chips.length-2].classList.remove('cur');}}
+
+function stats(){
+  $('count').textContent=chips.length;
+  const p=+$('prn').value;
+  if(chips.length>=10){const o=parseInt(chips.slice(0,10).join(''),2).toString(8);$('oct').textContent=o;
+    $('check').innerHTML=+o===OCT[p-1]?'<span style="color:var(--fb)">✓ matches the spec</span>':'<span style="color:var(--out)">✗ spec says '+OCT[p-1]+'</span>';}
+  else{$('oct').textContent='-';$('check').textContent='';}
+  const ones=chips.filter(c=>c).length;$('bal').textContent=(chips.length-ones)+'/'+ones;
+}
+
+function clock(){
+  if(chips.length>=1023)return null;
+  const [a,b]=TAPS[+$('prn').value-1],p1=g1.slice(),p2=g2.slice();
+  const g2o=g2[a-1]^g2[b-1],c=g1[9]^g2o;
+  const f1=G1FB.reduce((x,s)=>x^g1[s-1],0),f2=G2FB.reduce((x,s)=>x^g2[s-1],0);
+  g1=[f1,...g1.slice(0,9)];g2=[f2,...g2.slice(0,9)];chips.push(c);
+  return {c,f1,f2,g2o,p1,p2};
+}
+
+function step(n=1){let last,start=chips.length;for(let i=0;i<n;i++){const r=clock();if(!r)break;last=r;}
+  if(last){draw(last);eqs(last);paintGrid(start);stats();}
+  if(chips.length>=1023)stop();}
+
+function reset(){stop();g1=Array(10).fill(1);g2=Array(10).fill(1);chips=[];buildGrid();draw(null);eqs(null);stats();}
+function stop(){clearInterval(timer);timer=null;$('play').textContent='Play';}
+function play(){if(timer){stop();return;}if(chips.length>=1023)reset();
+  const sp=+$('speed').value,dt=Math.max(16,1000/sp),per=Math.max(1,Math.round(sp*dt/1000));
+  timer=setInterval(()=>step(per),dt);$('play').textContent='Pause';}
+
+$('step').onclick=()=>{stop();step(1);};
+$('play').onclick=play;
+$('run').onclick=()=>{stop();step(1023);};
+$('reset').onclick=reset;
+$('prn').onchange=reset;
+$('speed').oninput=()=>{$('speedv').textContent=$('speed').value+' chips/s';if(timer){stop();play();}};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw(null));
+reset();
+</script>
+</body></html>
