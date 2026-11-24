@@ -6,6 +6,50 @@ module ca_gen (
     output logic       chip,      // current chip (0/1)
     output logic       epoch      // high during chip 0 = start of the 1 ms code
 );
+
+    logic [3:0] s1, s2;
+
+    always_comb begin
+        case (prn)
+            6'd1:  begin s1 = 2; s2 = 6;  end
+            6'd2:  begin s1 = 3; s2 = 7;  end
+            6'd3:  begin s1 = 4; s2 = 8;  end
+            6'd4:  begin s1 = 5; s2 = 9;  end
+            6'd5:  begin s1 = 1; s2 = 9;  end
+            6'd6:  begin s1 = 2; s2 = 10; end
+            6'd7:  begin s1 = 1; s2 = 8;  end
+            6'd8:  begin s1 = 2; s2 = 9;  end
+            6'd9:  begin s1 = 3; s2 = 10; end
+            6'd10: begin s1 = 2; s2 = 3;  end
+            6'd11: begin s1 = 3; s2 = 4;  end
+            6'd12: begin s1 = 5; s2 = 6;  end
+            6'd13: begin s1 = 6; s2 = 7;  end
+            6'd14: begin s1 = 7; s2 = 8;  end
+            6'd15: begin s1 = 8; s2 = 9;  end
+            6'd16: begin s1 = 9; s2 = 10; end
+            6'd17: begin s1 = 1; s2 = 4;  end
+            6'd18: begin s1 = 2; s2 = 5;  end
+            6'd19: begin s1 = 3; s2 = 6;  end
+            6'd20: begin s1 = 4; s2 = 7;  end
+            6'd21: begin s1 = 5; s2 = 8;  end
+            6'd22: begin s1 = 6; s2 = 9;  end
+            6'd23: begin s1 = 1; s2 = 3;  end
+            6'd24: begin s1 = 4; s2 = 6;  end
+            6'd25: begin s1 = 5; s2 = 7;  end
+            6'd26: begin s1 = 6; s2 = 8;  end
+            6'd27: begin s1 = 7; s2 = 9;  end
+            6'd28: begin s1 = 8; s2 = 10; end
+            6'd29: begin s1 = 1; s2 = 6;  end
+            6'd30: begin s1 = 2; s2 = 7;  end
+            6'd31: begin s1 = 3; s2 = 8;  end
+            6'd32: begin s1 = 4; s2 = 9;  end
+            default: begin s1 = 1; s2 = 1; end
+        endcase
+    end
+
+
+
+
     logic [9:0] g1 = '1;
     logic [9:0] g2 = '1;
 
@@ -54,7 +98,7 @@ module ca_gen (
 
     always_comb begin
         
-        if ( g1[9] ^ (g2[0] ^ g2[3])) begin
+        if ( g1[9] ^ (g2[s1 - 1] ^ g2[s2 - 1])) begin
             output_chip = 1;
         end else begin
             output_chip = 0;
