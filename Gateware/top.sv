@@ -16,9 +16,6 @@ module top (
     assign rf_shdn_n = 1'b1;
     assign rf_idle_n = 1'b1;
 
-    logic [7:0] cmd, reply;
-    logic       cmd_valid;
-
     logic ld_sync;
     logic i0_sync;
     logic i1_sync;
@@ -47,32 +44,40 @@ module top (
         .synchronised_data(i1_sync)
     );
 
+    logic       spi_active, rx_valid, rx_first, tx_taken;
+    logic [7:0] rx_byte, tx_byte;
+
     mcu_spi spi (
         .clk       (clk),
         .mcu_sck   (mcu_sck),
         .mcu_cs    (mcu_cs),
         .mcu_mosi  (mcu_mosi),
+        .tx_byte   (tx_byte),
         .mcu_miso  (mcu_miso),
-        .cmd       (cmd),
-        .cmd_valid (cmd_valid),
-        .reply     (reply)
+        .active    (spi_active),
+        .rx_byte   (rx_byte),
+        .rx_valid  (rx_valid),
+        .rx_first  (rx_first),
+        .tx_taken  (tx_taken)
     );
 
-    always_comb begin
-        case (cmd)
-            8'h01:   reply = 8'h5A;               // ID
-            8'h02:   reply = {7'b0, ld_sync};     // PLL lock
-            8'h03:   reply = ratio0;              // number of 1s in mag
-            8'h04:   reply = ratio1;              // number of 1s in dir
-            8'h11:   reply = {7'b0, busy};        // still capturing?
-            8'h12:   reply = rdata;               // give me the next byte of data
-            default: reply = 8'h00;
-        endcase
-    end
+    logic cap_start, cap_next;
 
-    wire cap_start = cmd_valid && (cmd == 8'h10);
-    wire cap_next  = cmd_valid && (cmd == 8'h12);
+    regs regs_i (
+        .clk       (clk),
+        .rx_byte   (rx_byte),
+        .rx_valid  (rx_valid),
+        .rx_first  (rx_first),
+        .tx_byte   (tx_byte),
+        .ld        (ld_sync),
+        .cap_busy  (busy),
+        .tx_taken  (tx_taken),
+        .cap_rdata (rdata),
+        .cap_start (cap_start),
+        .cap_next  (cap_next)
+    );
 
+ 
     ones_counter counter0 (
         .clk    (clk),
         .bit_in (i0_sync),

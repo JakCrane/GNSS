@@ -78,14 +78,15 @@ async fn main(spawner: Spawner) {
             Err(fpga::BootErr::DoneTimeout) => "boot: DONE never went high\r\n",
         };
         let _ = usb::write_str(&mut tx, msg).await;
-
+        
         match fpga.capture().await {
             Ok(()) => {
                 let _ = usb::write_str(&mut tx, "capture: begin\r\n").await;
                 for _ in 0..fpga::CAPTURE_BYTES / 16 {
+                    let mut chunk = [0u8; 16];
+                    let _ = fpga.capture_read(&mut chunk);
                     let mut line: String<40> = String::new();
-                    for _ in 0..16 {
-                        let b = fpga.capture_next().unwrap_or(0);
+                    for b in chunk {
                         let _ = write!(line, "{:02x}", b);
                     }
                     let _ = line.push_str("\r\n");
@@ -97,27 +98,21 @@ async fn main(spawner: Spawner) {
             }
             Err(_) => { let _ = usb::write_str(&mut tx, "capture: failed\r\n").await; }
         }
-        
+
         while tx.dtr() {
             let mut line: String<64> = String::new();
-            match fpga.read_id() {
-                Ok(id) => { let _ = write!(line, "id=0x{:02x}\r\n", id); }
-                Err(_) => { let _ = line.push_str("id: SPI error\r\n"); }
-            }
 
-            match fpga.read_ld() {
-                Ok(ld) => { let _ = write!(line, "ld=0x{:02x}\r\n", ld); }
-                Err(_) => { let _ = line.push_str("ld: SPI error\r\n"); }
-            }
-
-            match fpga.read_i0() {
-                Ok(i0) => { let _ = write!(line, "i0=0x{:02x}\r\n", i0); }
-                Err(_) => { let _ = line.push_str("i0: SPI error\r\n"); }
-            }
-
-            match fpga.read_i1() {
-                Ok(i1) => { let _ = write!(line, "i1=0x{:02x}\r\n", i1); }
-                Err(_) => { let _ = line.push_str("i1: SPI error\r\n"); }
+            // One SPI frame reads two registers: 0x00 = ID, 0x01 = status
+            let mut r = [0u8; 2];
+            match fpga.read_regs(0x00, &mut r) {
+                Ok(()) => {
+                    let id = r[0];
+                    let status = r[1];
+                    let ld = status & 0x01;           // bit 0: PLL lock
+                    let busy = (status >> 1) & 0x01;  // bit 1: capture running
+                    let _ = write!(line, "id=0x{:02x} ld={} cap_busy={}\r\n", id, ld, busy);
+                }
+                Err(_) => { let _ = line.push_str("SPI error\r\n"); }
             }
 
             if usb::write_str(&mut tx, &line).await.is_err() {

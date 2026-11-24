@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!-- GPS code NCO demo: a phase accumulator whose overflow (carry out) pulses chip_en. Open in any browser. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPS code NCO demo</title>
+<style>
+:root{--fg:#1a1a1a;--fg2:#5f5e5a;--fg3:#888780;--bg:#fff;--card:#f1efe8;--line:#d3d1c7;--acc:#185FA5;--accbg:#E6F1FB;--en:#993C1D;--chip:#0F6E56;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--fg:#eee;--fg2:#b4b2a9;--fg3:#888780;--bg:#1c1c1c;--card:#2a2a28;--line:#444441;--acc:#85B7EB;--accbg:#0C447C;--en:#F0997B;--chip:#5DCAA5}}
+body{margin:20px auto;max-width:940px;padding:0 16px;font-family:system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+h1{font-size:20px;font-weight:500;margin:0 0 10px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.bar label{color:var(--fg2)}
+button,select{font-size:13px;padding:4px 10px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.eq{background:var(--card);border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.8;margin:8px 0}
+.eq b{font-weight:500}
+.top{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.stat{background:var(--card);border-radius:8px;padding:7px 10px}
+.stat span{display:block;font-size:11px;color:var(--fg2)}
+.stat b{font-size:15px;font-weight:500;font-family:ui-monospace,Menlo,Consolas,monospace}
+canvas{width:100%;display:block}
+svg text{font-family:system-ui,sans-serif}
+.hint{font-size:12px;color:var(--fg3);margin:2px 0 0}
+</style></head><body>
+<h1>Code NCO: when the next chip comes</h1>
+
+<div class="bar">
+  <label for="nbits">Accumulator width</label>
+  <select id="nbits"><option value="4">4 bits</option><option value="8">8 bits</option><option value="16">16 bits</option><option value="32" selected>32 bits</option></select>
+  <label for="dop">Carrier Doppler</label><input type="range" id="dop" min="-10000" max="10000" step="100" value="0" style="width:150px">
+  <span id="dopv" class="mono">0 Hz</span>
+  <label for="ex">Exaggerate</label>
+  <select id="ex"><option value="1">×1 (real)</option><option value="1000">×1,000</option><option value="10000">×10,000</option><option value="50000">×50,000</option></select>
+</div>
+<div class="bar">
+  <button id="step">Step 1 clock</button>
+  <button id="play">Play</button>
+  <button id="run">Run 1 ms</button>
+  <button id="reset">Reset</button>
+  <label for="speed">Speed</label><input type="range" id="speed" min="1" max="120" value="12" step="1" style="width:120px">
+  <span id="speedv" class="mono">12 clocks/s</span>
+</div>
+
+<div class="eq">
+  <div id="eqF" class="mono"></div>
+  <div id="eqA" class="mono"></div>
+  <div id="eqR" class="mono"></div>
+  <div id="eqD" class="mono"></div>
+</div>
+
+<div class="top">
+  <svg id="wheel" viewBox="0 0 200 200" role="img" aria-label="Phase accumulator drawn as a wheel"></svg>
+  <div class="stats">
+    <div class="stat"><span>Clock cycles</span><b id="sClk">0</b></div>
+    <div class="stat"><span>chip_en pulses (chips)</span><b id="sChips">0</b></div>
+    <div class="stat"><span>Accumulator (hex)</span><b id="sAcc">0</b></div>
+    <div class="stat"><span>Fractional chip phase</span><b id="sFrac">0.000</b></div>
+    <div class="stat"><span>Clocks between chip_en</span><b id="sHist">-</b></div>
+    <div class="stat"><span>Average clocks per chip</span><b id="sAvg">-</b></div>
+  </div>
+</div>
+
+<canvas id="cv" height="250"></canvas>
+<p class="hint">Last 96 clocks. Top: accumulator value as a fraction of 2<sup>N</sup>; each wrap is an overflow. Middle: chip_en, the carry out. Bottom: the C/A chip (PRN 1), which only advances when chip_en is high. Numbers above the wraps count clocks between pulses.</p>
+
+<script>
+const $=id=>document.getElementById(id);
+const v=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FCLK=16.368e6, FCHIP=1.023e6;
+
+function caPRN1(){const g1=Array(10).fill(1),g2=Array(10).fill(1),o=[];for(let i=0;i<1023;i++){o.push(g1[9]^g2[1]^g2[5]);const f1=g1[2]^g1[9],f2=g2[1]^g2[2]^g2[5]^g2[7]^g2[8]^g2[9];g1.pop();g1.unshift(f1);g2.pop();g2.unshift(f2);}return o;}
+const CA=caPRN1();
+
+let N,M,fcw,acc,clk,chipIdx,lastOv,hist,counts,timer=null,lastCarry=false,prevAcc=0;
+const fmt=(x,d=0)=>x.toLocaleString('en-GB',{minimumFractionDigits:d,maximumFractionDigits:d});
+const hex=(x,n)=>'0x'+Math.round(x).toString(16).toUpperCase().padStart(Math.ceil(n/4),'0');
+
+function params(){
+  N=+$('nbits').value;M=Math.pow(2,N);
+  const ex=+$('ex').value,dop=+$('dop').value*ex, codeDop=dop/1540, f=FCHIP+codeDop;
+  fcw=Math.max(1,Math.round(f*M/FCLK));
+  const ach=fcw*FCLK/M, res=FCLK/M;
+  $('dopv').textContent=fmt(+$('dop').value)+' Hz';
+  $('eqF').innerHTML=`<b>Frequency word:</b> FCW = round(f<sub>chip</sub> × 2<sup>${N}</sup> / f<sub>clk</sub>) = round(${fmt(f,2)} × ${fmt(M)} / 16,368,000) = <b>${fmt(fcw)}</b> (${hex(fcw,N)})`;
+  $('eqA').innerHTML=`<b>Every clock:</b> acc ← (acc + FCW) mod 2<sup>${N}</sup>, and chip_en = the carry out of that add`;
+  $('eqR').innerHTML=`<b>Achieved chip rate:</b> FCW × f<sub>clk</sub> / 2<sup>${N}</sup> = ${fmt(ach,4)} Hz (error ${fmt(ach-f,4)} Hz) · resolution f<sub>clk</sub>/2<sup>${N}</sup> = ${res>=1?fmt(res,1)+' Hz':fmt(res*1000,2)+' mHz'}`;
+  $('eqD').innerHTML=`<b>Code Doppler:</b> carrier Doppler / 1540 = ${fmt(codeDop,3)} Hz${ex>1?' (exaggerated ×'+fmt(ex)+')':''}. Without it in the FCW, the replica would slip ${fmt(Math.abs(codeDop),3)} chips/s ≈ ${fmt(Math.abs(codeDop)*293.05,0)} m/s of range`;
+}
+
+function reset(){stop();params();acc=0;prevAcc=0;clk=0;chipIdx=0;lastOv=0;hist=[];counts={};lastCarry=false;render();}
+
+function clockOnce(){
+  prevAcc=acc;const s=acc+fcw, carry=s>=M; acc=carry?s-M:s; clk++;
+  if(carry){chipIdx=(chipIdx+1)%1023;const d=clk-lastOv;if(lastOv>0||clk===d)counts[d]=(counts[d]||0)+1;lastOv=clk;}
+  lastCarry=carry;
+  hist.push({a:acc/M,c:carry,chip:CA[chipIdx]});if(hist.length>96)hist.shift();
+}
+
+function render(){
+  const chips=Object.entries(counts).reduce((s,[k,n])=>s+n,0);
+  $('sClk').textContent=fmt(clk);$('sChips').textContent=fmt(chips);
+  $('sAcc').textContent=hex(acc,N);$('sFrac').textContent=(acc/M).toFixed(3);
+  const ks=Object.keys(counts).map(Number).sort((a,b)=>a-b);
+  $('sHist').textContent=ks.length?ks.map(k=>k+':'+fmt(counts[k])).join('  '):'-';
+  $('sAvg').textContent=chips?(lastOv/chips).toFixed(4):'-';
+  drawWheel();drawPlot();
+}
+
+function drawWheel(){
+  const w=$('wheel'),cx=100,cy=100,r=72,ang=a=>(-90+360*a)*Math.PI/180,pt=(a,rr)=>[cx+rr*Math.cos(ang(a)),cy+rr*Math.sin(ang(a))];
+  const a1=acc/M,a0=prevAcc/M;let s='';
+  s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${v('--line')}" stroke-width="10"/>`;
+  if(clk>0){const span=(a1-a0+1)%1||(fcw>=M?1:0),large=span>0.5?1:0,[x0,y0]=pt(a0,r),[x1,y1]=pt(a0+Math.min(span,0.9999),r);
+    s+=`<path d="M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1}" fill="none" stroke="${v('--acc')}" stroke-width="10" opacity="0.45"/>`;}
+  const [tx,ty]=pt(0,r+14);s+=`<line x1="${cx}" y1="${cy-r-6}" x2="${cx}" y2="${cy-r+6}" stroke="${v('--en')}" stroke-width="3"/>`;
+  s+=`<text x="${tx}" y="${ty-2}" text-anchor="middle" font-size="11" fill="${v('--en')}">overflow</text>`;
+  const [px,py]=pt(a1,r-4);s+=`<line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="${v('--acc')}" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="4" fill="${v('--acc')}"/>`;
+  s+=`<text x="${cx}" y="${cy+30}" text-anchor="middle" font-size="12" fill="${v('--fg2')}">acc / 2^N</text>`;
+  if(lastCarry)s+=`<text x="${cx}" y="${cy-18}" text-anchor="middle" font-size="14" font-weight="500" fill="${v('--en')}">chip_en</text>`;
+  w.innerHTML=s;
+}
+
+function drawPlot(){
+  const c=$('cv'),r=window.devicePixelRatio||1,W=c.clientWidth,H=+c.getAttribute('height');c.width=W*r;c.height=H*r;c.style.height=H+'px';
+  const x=c.getContext('2d');x.setTransform(r,0,0,r,0,0);x.clearRect(0,0,W,H);x.font='11px system-ui,sans-serif';
+  const L=70,R=W-6,n=96,dx=(R-L)/n,acT=22,acB=130,enT=150,enB=180,chT=200,chB=232;
+  const lab=(t,y)=>{x.fillStyle=v('--fg2');x.fillText(t,4,y);};
+  lab('acc',(acT+acB)/2);lab('chip_en',(enT+enB)/2+4);lab('C/A chip',(chT+chB)/2+4);
+  x.strokeStyle=v('--line');x.lineWidth=0.5;[acB,enB,(chT+chB)/2].forEach(y=>{x.beginPath();x.moveTo(L,y);x.lineTo(R,y);x.stroke();});
+  x.beginPath();x.moveTo(L,acT);x.lineTo(R,acT);x.setLineDash([3,3]);x.stroke();x.setLineDash([]);
+  x.fillStyle=v('--fg3');x.fillText('2^N',L-26,acT+4);x.fillText('0',L-12,acB+4);
+  const off=n-hist.length;
+  // accumulator sawtooth
+  x.strokeStyle=v('--acc');x.lineWidth=1.5;x.beginPath();
+  hist.forEach((h,i)=>{const X=L+(off+i+1)*dx,Y=acB-(acB-acT)*h.a;
+    if(i===0){x.moveTo(X,Y);return;}
+    if(h.c){const prev=hist[i-1].a,frac=(1-prev)/((h.a+1-prev)||1),Xw=L+(off+i)*dx+frac*dx;x.lineTo(Xw,acT);x.moveTo(Xw,acB);}
+    x.lineTo(X,Y);});
+  x.stroke();
+  hist.forEach((h,i)=>{const X=L+(off+i+1)*dx;x.fillStyle=v('--acc');x.beginPath();x.arc(X,acB-(acB-acT)*h.a,2,0,7);x.fill();});
+  // chip_en pulses and interval labels
+  let lastI=null;
+  hist.forEach((h,i)=>{if(!h.c)return;const X=L+(off+i+1)*dx;
+    x.fillStyle=v('--en');x.fillRect(X-dx/2+1,enT,Math.max(2,dx-2),enB-enT);
+    if(lastI!==null){x.fillStyle=v('--fg2');x.textAlign='center';x.fillText(i-lastI,(X+L+(off+lastI+1)*dx)/2,acT-8);x.textAlign='left';}
+    lastI=i;});
+  // C/A chip waveform
+  x.strokeStyle=v('--chip');x.lineWidth=2;x.beginPath();
+  hist.forEach((h,i)=>{const X0=L+(off+i+0.5)*dx,X1=X0+dx,Y=h.chip?chB:chT;if(i===0)x.moveTo(X0,Y);else x.lineTo(X0,Y);x.lineTo(X1,Y);});
+  x.stroke();
+  x.fillStyle=v('--fg3');x.fillText('+1',L-20,chT+4);x.fillText('−1',L-20,chB+4);
+  x.fillText('clock cycles →',R-80,H-2);
+}
+
+function step(k){for(let i=0;i<k;i++)clockOnce();render();}
+function stop(){clearInterval(timer);timer=null;$('play').textContent='Play';}
+function play(){if(timer){stop();return;}const sp=+$('speed').value,dt=Math.max(16,1000/sp),per=Math.max(1,Math.round(sp*dt/1000));timer=setInterval(()=>step(per),dt);$('play').textContent='Pause';}
+
+$('step').onclick=()=>{stop();step(1);};
+$('play').onclick=play;
+$('run').onclick=()=>{stop();step(16368);};
+$('reset').onclick=reset;
+['nbits','dop','ex'].forEach(id=>$(id).addEventListener('input',reset));
+$('speed').oninput=()=>{$('speedv').textContent=$('speed').value+' clocks/s';if(timer){stop();play();}};
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,100);});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',render);
+reset();
+</script>
+</body></html>

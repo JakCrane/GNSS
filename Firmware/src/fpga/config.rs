@@ -73,50 +73,44 @@ impl Fpga {
         r
     }
 
-    pub fn read_id(&mut self) -> Result<u8, spi::Error> {
-        let mut buf = [0x01, 0x00];
-        let r = self.command(&mut buf);
-        r.map(|_| buf[1])
+    pub fn read_regs(&mut self, addr: u8, out: &mut [u8]) -> Result<(), spi::Error> {
+        let mut buf = [0u8; 33];
+        let n = out.len() + 1;
+        buf[0] = addr & 0x7F; // sets msb to 0 to indicate read (safeguard)
+        self.command(&mut buf[..n])?;
+        out.copy_from_slice(&buf[1..n]);       // keep everything after the header
+        Ok(())
     }
 
-    pub fn read_ld(&mut self) -> Result<u8, spi::Error> {
-        let mut buf = [0x02, 0x00];
-        let r = self.command(&mut buf);
-        r.map(|_| buf[1])
-    }
-    
-    pub fn read_i0(&mut self) -> Result<u8, spi::Error> {
-        let mut buf = [0x03, 0x00];
-        let r = self.command(&mut buf);
-        r.map(|_| buf[1])
-    }
-
-    pub fn read_i1(&mut self) -> Result<u8, spi::Error> {
-        let mut buf = [0x04, 0x00];
-        let r = self.command(&mut buf);
-        r.map(|_| buf[1])
-    }
-
-    pub fn query(&mut self, cmd: u8) -> Result<u8, spi::Error> {
-        let mut buf = [cmd, 0x00];
-        self.command(&mut buf).map(|_| buf[1])
+    pub fn write_regs(&mut self, addr: u8, data: &[u8]) -> Result<(), spi::Error> {
+        let mut buf = [0u8; 33];
+        let n = data.len() + 1;
+        buf[0] = addr | 0x80;                 // write: bit 7 = 1
+        buf[1..n].copy_from_slice(data);
+        self.command(&mut buf[..n])
     }
 
     pub async fn capture(&mut self) -> Result<(), CaptureErr> {
-        self.query(0x10)?;                                   // start
+        self.write_regs(0x02, &[0x01])?;      // CTRL bit 0: start
         let start = Instant::now();
-        while self.query(0x11)? != 0 {                       // poll busy
+        loop {
+            let mut status = [0u8; 1];
+            self.read_regs(0x01, &mut status)?;
+            if status[0] & 0x02 == 0 {         // bit 1: capture busy
+                return Ok(());
+            }
             if start.elapsed() > Duration::from_millis(100) {
                 return Err(CaptureErr::Timeout);
             }
             Timer::after_millis(1).await;
         }
-        Ok(())
     }
 
-    pub fn capture_next(&mut self) -> Result<u8, spi::Error> {
-        self.query(0x12)
+    pub fn capture_read(&mut self, out: &mut [u8]) -> Result<(), spi::Error> {
+        self.read_regs(0x03, out)
     }
+
+    
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }
