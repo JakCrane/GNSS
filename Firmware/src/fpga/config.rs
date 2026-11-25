@@ -182,17 +182,33 @@ impl Fpga {
         self.wait_dumps(2).await?;
         Ok((best.0, best.1, total / N as u64))
     }
-    
+        /// Set absolute code rate (chips/s) and carrier frequency (Hz at IF).
+    pub fn set_nco(&mut self, code_hz: f64, carr_hz: f64) -> Result<(), spi::Error> {
+        let mut b = [0u8; 8];
+        b[0..4].copy_from_slice(&fword(code_hz).to_le_bytes());   // 0x12..0x15
+        b[4..8].copy_from_slice(&fword(carr_hz).to_le_bytes());   // 0x16..0x19
+        self.write_regs(0x12, &b)
+    }
+
+    pub fn read_correlators_raw(&mut self, s: &mut [u8; 19]) -> Result<Correlators, spi::Error> {
+        self.read_regs(0x20, s)?;
+        Ok(Correlators {
+            ie: i24(&s[0..]),  qe: i24(&s[3..]),
+            ip: i24(&s[6..]),  qp: i24(&s[9..]),
+            il: i24(&s[12..]), ql: i24(&s[15..]),
+            dumps: s[18],
+        })
+    }
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }
 
 pub const CAPTURE_BYTES: usize = 32768;
 
-const FS: f64 = 16.368e6;
-const F_IF: f64 = 4.092e6;
-const CHIP_RATE: f64 = 1.023e6;
-const F_L1: f64 = 1575.42e6;
+pub(crate) const FS: f64 = 16.368e6;
+pub(crate) const F_IF: f64 = 4.092e6;
+pub(crate) const CHIP_RATE: f64 = 1.023e6;
+pub(crate) const F_L1: f64 = 1575.42e6;
 
 fn fword(f_hz: f64) -> u32 {
     (f_hz / FS * 4294967296.0 + 0.5) as u32

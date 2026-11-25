@@ -56,6 +56,12 @@ async fn main(spawner: Spawner) {
     };
     let boot = fpga.hold_in_reset().boot_from_flash().await;
 
+    let mut doppler = 2500.0;
+    let _ = fpga.set_channel(27, doppler, false);
+    let mut trk: Option<fpga::Tracker> = None;
+    let mut tick: u32 = 0;
+    let mut stream: heapless::Vec<u8, 190> = heapless::Vec::new();   // 10 dumps × 19 bytes
+
     // Main loop: say hello once a second while a terminal has the port open.
     loop {
         tx.wait_connection().await;
@@ -84,18 +90,32 @@ async fn main(spawner: Spawner) {
         let _ = usb::write_str(&mut tx, msg).await;
         
         
-        let _ = fpga.set_channel(27, 2500.0, false);      // CH_CTRL = 0 (run), CH_PRN = 27
-        
-        while tx.dtr() {           
-            match select(CMDS.receive(), Timer::after_millis(100)).await {
-                Either::First(Cmd::SetChannel { prn, doppler }) => {
-                    let _ = fpga.set_channel(prn, doppler, false);
+        while tx.dtr() {     
+            let tracking = trk.is_some();
+            let wait = async {
+                if tracking { let _ = fpga.wait_dumps(1).await; }
+                else        { Timer::after_millis(100).await; }
+            };      
+
+            let ev = select(CMDS.receive(), wait).await;
+
+            match ev {
+                Either::First(Cmd::SetChannel { prn, doppler: d }) => {
+                    trk = None;                                   // back to open loop
+                    doppler = d;
+                    let _ = fpga.set_channel(prn, d, false);
                     let mut l: String<64> = String::new();
-                    let _ = write!(l, "ch: prn {} doppler {}\r\n", prn, doppler);
+                    let _ = write!(l, "ch: prn {} doppler {}\r\n", prn, d);
                     let _ = usb::write_str(&mut tx, &l).await;
                 }
                 Either::First(Cmd::Capture) => { dump_capture(&mut fpga, &mut tx).await }
+                Either::First(Cmd::Track) => {
+                    trk = Some(fpga::Tracker::new(doppler));
+                    stream.clear();
+                    let _ = usb::write_str(&mut tx, "trk: on\r\n").await;
+                }
                 Either::First(Cmd::Search) => {
+                    trk = None;
                     let mut l: String<96> = String::new();
                     match fpga.code_search(2).await {
                         Ok((k, peak, mean)) => {
@@ -107,11 +127,39 @@ async fn main(spawner: Spawner) {
                     let _ = usb::write_str(&mut tx, &l).await;
                 }
                 Either::Second(()) => {
-                    if let Ok(c) = fpga.read_correlators() {
-                        let mut l: String<128> = String::new();
-                        let _ = write!(l, "E {:7},{:7}  P {:7},{:7}  L {:7},{:7}  d={}\r\n",
-                        c.ie, c.qe, c.ip, c.qp, c.il, c.ql, c.dumps);
-                        if usb::write_str(&mut tx, &l).await.is_err() { break; }
+                    let Ok(c) = fpga.read_correlators() else { continue };
+                    if let Some(t) = trk.as_mut() {
+                        t.update(&c);
+                        let _ = fpga.set_nco(t.code_hz(), t.carr_hz());
+                        tick += 1;
+                        if tick % 100 != 0 { continue; }          // print every 100 ms
+                    }
+                    let mut l: String<160> = String::new();
+                    let _ = write!(l, "E {:7},{:7}  P {:7},{:7}  L {:7},{:7}  d={}",
+                                c.ie, c.qe, c.ip, c.qp, c.il, c.ql, c.dumps);
+                    if let Some(t) = &trk {
+                        let _ = write!(l, "  dll={:+.3} corr={:+.4}", t.disc, t.code_corr);
+                    }
+                    let _ = l.push_str("\r\n");
+                    if usb::write_str(&mut tx, &l).await.is_err() { break; }
+                    let mut raw = [0u8; 19];
+                    let Ok(c) = fpga.read_correlators_raw(&mut raw) else { continue };
+                    if let Some(t) = trk.as_mut() {
+                        t.update(&c);
+                        let _ = fpga.set_nco(t.code_hz(), t.carr_hz());
+
+                        let _ = stream.extend_from_slice(&raw);
+                        if stream.is_full() {                          // 10 dumps = 190 bytes
+                            let mut l: String<400> = String::new();
+                            let _ = l.push_str("S ");
+                            for b in &stream { let _ = write!(l, "{:02x}", b); }
+                            let _ = l.push_str("\r\n");
+                            let _ = usb::write_str(&mut tx, &l).await;
+                            stream.clear();
+                        }
+
+                        tick += 1;
+                        if tick % 100 != 0 { continue; }
                     }
                 }
             }
