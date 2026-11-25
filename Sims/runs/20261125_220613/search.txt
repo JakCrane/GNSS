@@ -1,0 +1,1 @@
+PRN 32 doppler +2619.7: search: step 1794 peak 44436072 mean 1718522 ratio 25.9
