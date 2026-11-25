@@ -12,6 +12,10 @@ use embassy_stm32::Config;
 use core::fmt::Write as _;
 use embassy_time::{with_timeout, Duration, Timer, Instant};
 use heapless::String;
+use embassy_futures::select::{select, Either};
+use commands::{Cmd, CMDS};
+use embassy_usb::class::cdc_acm::Sender;
+use usb::UsbDriver;   // or crate::usb::driver::UsbDriver if it isn't re-exported
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -79,46 +83,49 @@ async fn main(spawner: Spawner) {
         };
         let _ = usb::write_str(&mut tx, msg).await;
         
-        match fpga.capture().await {
-            Ok(()) => {
-                let _ = usb::write_str(&mut tx, "capture: begin\r\n").await;
-                for _ in 0..fpga::CAPTURE_BYTES / 16 {
-                    let mut chunk = [0u8; 16];
-                    let _ = fpga.capture_read(&mut chunk);
-                    let mut line: String<40> = String::new();
-                    for b in chunk {
-                        let _ = write!(line, "{:02x}", b);
-                    }
-                    let _ = line.push_str("\r\n");
-                    if usb::write_str(&mut tx, &line).await.is_err() {
-                        break;
+        
+        let _ = fpga.set_channel(27, 2500.0, false);      // CH_CTRL = 0 (run), CH_PRN = 27
+        
+        while tx.dtr() {           
+            match select(CMDS.receive(), Timer::after_millis(100)).await {
+                Either::First(Cmd::SetChannel { prn, doppler }) => {
+                    let _ = fpga.set_channel(prn, doppler, false);
+                    let mut l: String<64> = String::new();
+                    let _ = write!(l, "ch: prn {} doppler {}\r\n", prn, doppler);
+                    let _ = usb::write_str(&mut tx, &l).await;
+                }
+                Either::First(Cmd::Capture) => { dump_capture(&mut fpga, &mut tx).await }
+                Either::Second(()) => {
+                    if let Ok(c) = fpga.read_correlators() {
+                        let mut l: String<128> = String::new();
+                        let _ = write!(l, "E {:7},{:7}  P {:7},{:7}  L {:7},{:7}  d={}\r\n",
+                        c.ie, c.qe, c.ip, c.qp, c.il, c.ql, c.dumps);
+                        if usb::write_str(&mut tx, &l).await.is_err() { break; }
                     }
                 }
-                let _ = usb::write_str(&mut tx, "capture: end\r\n").await;
             }
-            Err(_) => { let _ = usb::write_str(&mut tx, "capture: failed\r\n").await; }
         }
+    }
+}
 
-        while tx.dtr() {
-            let mut line: String<64> = String::new();
-
-            // One SPI frame reads two registers: 0x00 = ID, 0x01 = status
-            let mut r = [0u8; 2];
-            match fpga.read_regs(0x00, &mut r) {
-                Ok(()) => {
-                    let id = r[0];
-                    let status = r[1];
-                    let ld = status & 0x01;           // bit 0: PLL lock
-                    let busy = (status >> 1) & 0x01;  // bit 1: capture running
-                    let _ = write!(line, "id=0x{:02x} ld={} cap_busy={}\r\n", id, ld, busy);
+async fn dump_capture(fpga: &mut fpga::Fpga, tx: &mut Sender<'static, UsbDriver>) {
+    match fpga.capture().await {
+        Ok(()) => {
+            let _ = usb::write_str(tx, "capture: begin\r\n").await;
+            for _ in 0..fpga::CAPTURE_BYTES / 16 {
+                let mut chunk = [0u8; 16];
+                let _ = fpga.capture_read(&mut chunk);
+                let mut line: String<40> = String::new();
+                for b in chunk {
+                    let _ = write!(line, "{:02x}", b);
                 }
-                Err(_) => { let _ = line.push_str("SPI error\r\n"); }
+                let _ = line.push_str("\r\n");
+                if usb::write_str(tx, &line).await.is_err() {
+                    break;
+                }
             }
-
-            if usb::write_str(&mut tx, &line).await.is_err() {
-                break;
-            }
-            Timer::after_secs(1).await;
+            let _ = usb::write_str(tx, "capture: end\r\n").await;
         }
+        Err(_) => { let _ = usb::write_str(tx, "capture: failed\r\n").await; }
     }
 }

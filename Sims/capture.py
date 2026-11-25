@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Grab one FPGA sample capture over USB serial and save it as raw bytes.
 
-Opening the port (DTR high) makes the firmware run a capture and print it as
-hex lines between "capture: begin" and "capture: end".
+Sending "cap" makes the firmware run a capture and print it as hex lines
+between "capture: begin" and "capture: end". Anything printed before that
+(boot messages, correlator lines) is ignored.
 
 Each byte holds 4 samples, oldest in the top two bits. Each 2-bit sample is
 {mag, sign} = {I0, I1} (the order set in top.sv).
@@ -22,6 +23,7 @@ def grab(port: str) -> bytes:
     started = False
     with serial.Serial(port, timeout=5) as s:
         s.dtr = True
+        s.write(b"cap\r\n")      # firmware only captures on request
         for raw in s:
             line = raw.decode(errors="ignore").strip()
             if line == "capture: failed":

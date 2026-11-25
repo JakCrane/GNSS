@@ -26,6 +26,9 @@ module top (
     logic busy;
     logic [7:0] rdata;
 
+
+
+
     sync2  #(.INIT(1'b0)) ld_sync_i ( // parameter redundant for now but for readability
         .clk(clk), 
         .raw_data(rf_ld),
@@ -61,33 +64,50 @@ module top (
         .tx_taken  (tx_taken)
     );
 
+    logic signed [19:0] ie, qe, ip, qp, il, ql;
+    logic               dump;
+    wire signed [2:0] sample = i1_sync ? (i0_sync ?  3'sd3 :  3'sd1)
+                                   : (i0_sync ? -3'sd3 : -3'sd1);
+
+    channel ch0 (
+        .clk(clk), 
+        .reset(ch_reset), 
+        .prn(ch_prn),
+        .code_fword(ch_code_fword), 
+        .carrier_fword(ch_carr_fword), 
+        .sample(sample),
+        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql), 
+        .dump(dump),
+        .early(), 
+        .prompt(), 
+        .late(), 
+        .epoch()          
+    );
+
     logic cap_start, cap_next;
+    logic        ch_reset;
+    logic [5:0]  ch_prn;
+    logic [31:0] ch_code_fword, ch_carr_fword;
 
     regs regs_i (
-        .clk       (clk),
-        .rx_byte   (rx_byte),
-        .rx_valid  (rx_valid),
-        .rx_first  (rx_first),
-        .tx_byte   (tx_byte),
-        .ld        (ld_sync),
-        .cap_busy  (busy),
-        .tx_taken  (tx_taken),
-        .cap_rdata (rdata),
-        .cap_start (cap_start),
-        .cap_next  (cap_next)
-    );
-
- 
-    ones_counter counter0 (
-        .clk    (clk),
-        .bit_in (i0_sync),
-        .ratio  (ratio0)
-    );
-
-    ones_counter counter1 (
-        .clk    (clk),
-        .bit_in (i1_sync),
-        .ratio  (ratio1)
+        .clk            (clk),
+        .rx_byte        (rx_byte),
+        .rx_valid       (rx_valid),
+        .rx_first       (rx_first),
+        .tx_byte        (tx_byte),
+        .ld             (ld_sync),
+        .cap_busy       (busy),
+        .tx_taken       (tx_taken),
+        .cap_rdata      (rdata),
+        .cap_start      (cap_start),
+        .cap_next       (cap_next),
+        .active         (spi_active),
+        .ch_reset       (ch_reset),
+        .ch_prn         (ch_prn),
+        .ch_code_fword  (ch_code_fword),
+        .ch_carr_fword  (ch_carr_fword),
+        .dump           (dump),
+        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql)
     );
 
     capture cap (

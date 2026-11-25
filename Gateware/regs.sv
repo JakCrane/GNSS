@@ -12,13 +12,25 @@ module regs (
     input  logic       tx_taken,
     input  logic [7:0] cap_rdata,
     output logic       cap_start,
-    output logic       cap_next
+    output logic       cap_next,
+
+    input  logic        active,          // from mcu_spi: CS low
+    output logic        ch_reset,
+    output logic [5:0]  ch_prn,
+    output logic [31:0] ch_code_fword,
+    output logic [31:0] ch_carr_fword,
+    input  logic        dump,
+    input  logic signed [19:0] ie, qe, ip, qp, il, ql
 );
+
     localparam logic [6:0] A_ID      = 7'h00;
     localparam logic [6:0] A_STATUS  = 7'h01;
     localparam logic [6:0] A_CTRL    = 7'h02;   // write bit 0 = 1 → start capture
     localparam logic [6:0] A_CAPDATA = 7'h03;   // each read = next captured byte
+    localparam logic [6:0] A_RESULTS = 7'h20;          // with the other localparams
+    localparam logic [6:0] A_DUMPCNT = 7'h32;
 
+    logic [7:0] dump_cnt = '0;
     logic [6:0] addr = '0;
     wire        hdr_write = rx_byte[7];
     wire  [6:0] hdr_addr  = rx_byte[6:0];
@@ -32,6 +44,67 @@ module regs (
     wire  reading = rx_first ? !hdr_write : !is_write;
     logic loaded_capdata = 1'b0;
 
+    wire [23:0] ie24 = {{4{ie[19]}}, ie};
+    wire [23:0] qe24 = {{4{qe[19]}}, qe};
+    wire [23:0] ip24 = {{4{ip[19]}}, ip};
+    wire [23:0] qp24 = {{4{qp[19]}}, qp};
+    wire [23:0] il24 = {{4{il[19]}}, il};
+    wire [23:0] ql24 = {{4{ql[19]}}, ql};
+    wire [151:0] results_live = {dump_cnt, ql24, il24, qp24, ip24, qe24, ie24};
+
+    logic [151:0] snap = '0;
+    always_ff @(posedge clk)
+        if (rx_first) snap <= results_live;       // freeze everything when a frame starts
+
+    wire [151:0] results = rx_first ? results_live : snap;   // after the snap block (line 58)
+    wire [4:0]   res_idx = rd_addr - A_RESULTS;
+
+    logic [7:0]  sh_ctrl = 8'h01;              // start held in reset
+    logic [5:0]  sh_prn  = '0;
+    logic [31:0] sh_code = 32'h1000_0000;      // nominal 1.023 MHz
+    logic [31:0] sh_carr = 32'h4000_0000;      // nominal 4.092 MHz
+
+    always_ff @(posedge clk) begin
+        if (wr) begin
+            case (addr)
+                7'h10: sh_ctrl       <= rx_byte;
+                7'h11: sh_prn        <= rx_byte[5:0];
+                7'h12: sh_code[7:0]   <= rx_byte;
+                7'h13: sh_code[15:8]  <= rx_byte;
+                7'h14: sh_code[23:16] <= rx_byte;
+                7'h15: sh_code[31:24] <= rx_byte;
+                7'h16: sh_carr[7:0]   <= rx_byte;
+                7'h17: sh_carr[15:8]  <= rx_byte;
+                7'h18: sh_carr[23:16] <= rx_byte;
+                7'h19: sh_carr[31:24] <= rx_byte;
+                default: ;
+            endcase
+        end
+    end
+
+    logic active_d = 1'b0;
+    always_ff @(posedge clk) active_d <= active;
+    wire frame_end = active_d && !active;
+
+    logic        ch_reset_r = 1'b1;              // held in reset until the MCU releases it
+    logic [5:0]  ch_prn_r   = '0;
+    logic [31:0] ch_code_r  = 32'h1000_0000;
+    logic [31:0] ch_carr_r  = 32'h4000_0000;
+
+    always_ff @(posedge clk) begin
+        if (frame_end) begin
+            ch_reset_r      <= sh_ctrl[0];
+            ch_prn_r        <= sh_prn;
+            ch_code_r <= sh_code;
+            ch_carr_r <= sh_carr;
+        end
+    end
+
+    assign ch_reset      = ch_reset_r;
+    assign ch_prn        = ch_prn_r;
+    assign ch_code_fword = ch_code_r;
+    assign ch_carr_fword = ch_carr_r;
+
     always_ff @(posedge clk) begin
         if (rx_first) begin
             addr     <= hdr_addr;            // byte 1 belongs to the header's address
@@ -43,16 +116,22 @@ module regs (
     end
 
     always_comb begin
-        case (rd_addr)
-            A_ID:      tx_byte = 8'h5A;
-            A_STATUS:  tx_byte = {6'b0, cap_busy, ld};
-            A_CAPDATA: tx_byte = cap_rdata;
-            default:   tx_byte = 8'h00;
-        endcase
+        if (rd_addr >= A_RESULTS && rd_addr <= A_DUMPCNT) begin
+            tx_byte = results[res_idx*8 +: 8];               // byte number res_idx
+        end else begin
+            case (rd_addr)
+                A_ID:      tx_byte = 8'h5A;
+                A_STATUS:  tx_byte = {6'b0, cap_busy, ld};
+                A_CAPDATA: tx_byte = cap_rdata;
+                default:   tx_byte = 8'h00;
+            endcase
+        end
     end
 
     assign cap_start = wr && (addr == A_CTRL) && rx_byte[0];
     assign cap_next = tx_taken && loaded_capdata;
+
+    always_ff @(posedge clk) if (dump) dump_cnt <= dump_cnt + 1'b1;
 
 
 endmodule

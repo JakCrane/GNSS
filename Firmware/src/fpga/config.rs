@@ -110,12 +110,64 @@ impl Fpga {
         self.read_regs(0x03, out)
     }
 
+    /// Configure the tracking channel for a PRN at a given Doppler (Hz).
+    /// All registers land together when CS goes high.
+    pub fn set_channel(&mut self, prn: u8, doppler_hz: f64, hold_reset: bool) -> Result<(), spi::Error> {
+        let carr = fword(F_IF + doppler_hz).to_le_bytes();
+        let code = fword(CHIP_RATE * (1.0 + doppler_hz / F_L1)).to_le_bytes();
+
+        let mut b = [0u8; 10];
+        b[0] = hold_reset as u8;            // 0x10 CTRL bit 0
+        b[1] = prn;                         // 0x11 PRN
+        b[2..6].copy_from_slice(&code);     // 0x12..0x15
+        b[6..10].copy_from_slice(&carr);    // 0x16..0x19
+        self.write_regs(0x10, &b)
+    }
+
+    /// One snapshot of the correlators (taken atomically at frame start).
+    pub fn read_correlators(&mut self) -> Result<Correlators, spi::Error> {
+        let mut s = [0u8; 19];
+        self.read_regs(0x20, &mut s)?;
+        Ok(Correlators {
+            ie: i24(&s[0..]),  qe: i24(&s[3..]),
+            ip: i24(&s[6..]),  qp: i24(&s[9..]),
+            il: i24(&s[12..]), ql: i24(&s[15..]),
+            dumps: s[18],
+        })
+    }
+
+    pub fn dump_count(&mut self) -> Result<u8, spi::Error> {
+        let mut c = [0u8; 1];
+        self.read_regs(0x32, &mut c)?;
+        Ok(c[0])
+    }
     
 }
 
 pub enum BootErr { InitTimeout, DoneTimeout }
 
 pub const CAPTURE_BYTES: usize = 32768;
+
+const FS: f64 = 16.368e6;
+const F_IF: f64 = 4.092e6;
+const CHIP_RATE: f64 = 1.023e6;
+const F_L1: f64 = 1575.42e6;
+
+fn fword(f_hz: f64) -> u32 {
+    (f_hz / FS * 4294967296.0 + 0.5) as u32
+}
+
+fn i24(b: &[u8]) -> i32 {
+    let sign = if b[2] & 0x80 != 0 { 0xFF } else { 0x00 };
+    i32::from_le_bytes([b[0], b[1], b[2], sign])
+}
+
+pub struct Correlators {
+    pub ie: i32, pub qe: i32,
+    pub ip: i32, pub qp: i32,
+    pub il: i32, pub ql: i32,
+    pub dumps: u8,
+}
 
 pub enum CaptureErr { Spi, Timeout }
 
