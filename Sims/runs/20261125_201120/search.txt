@@ -1,0 +1,1 @@
+PRN 10 doppler +2720.7: search: step 1325 peak 83659416 mean 1684643 ratio 49.7
