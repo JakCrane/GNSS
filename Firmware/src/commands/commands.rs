@@ -27,11 +27,13 @@ pub async fn run(mut rx: Receiver<'static, UsbDriver>) -> ! {
 }
 
 pub enum Cmd {
-    SetChannel { prn: u8, doppler: f64 },
+    SetChannel { ch: u8, prn: u8, doppler: f64 },
     Capture,
-    Search,
-    Track { pll: bool },
+    Search { ch: u8 },
+    Track { ch: u8, pll: bool },
     FlipCarrierSign,
+    SpiSpeed { mhz: u32 },
+    SpiTest { n: u32 },
 }
 
 pub static CMDS: Channel<CriticalSectionRawMutex, Cmd, 4> = Channel::new();
@@ -44,19 +46,37 @@ async fn handle(line: &str) {
             super::dfu::reboot();
         }
         Some("ch") => {
+            let ch = words.next().and_then(|s| s.parse::<u8>().ok());
             let prn = words.next().and_then(|s| s.parse::<u8>().ok());
             let dop = words.next().and_then(|s| s.parse::<f64>().ok());
-            if let (Some(prn), Some(doppler)) = (prn, dop) {
-                CMDS.send(Cmd::SetChannel { prn, doppler }).await;
+            if let (Some(ch), Some(prn), Some(doppler)) = (ch, prn, dop) {
+                CMDS.send(Cmd::SetChannel { ch, prn, doppler }).await;
             }
         }
         Some("cap") => CMDS.send(Cmd::Capture).await,
-        Some("srch") => CMDS.send(Cmd::Search).await,
+        Some("srch") => {
+            if let Some(ch) = words.next().and_then(|s| s.parse::<u8>().ok()) {
+                CMDS.send(Cmd::Search { ch }).await;
+            }
+        }
         Some("trk") => {
-            let pll = words.next() == Some("pll");
-            CMDS.send(Cmd::Track { pll }).await
+            if let Some(ch) = words.next().and_then(|s| s.parse::<u8>().ok()) {
+                let pll = words.next() == Some("pll");
+                CMDS.send(Cmd::Track { ch, pll }).await;
+            }
         }
         Some("csign") => CMDS.send(Cmd::FlipCarrierSign).await,
+        // spi <MHz>: change the FPGA SPI clock (2, 4 or 8)
+        Some("spi") => {
+            if let Some(mhz) = words.next().and_then(|s| s.parse::<u32>().ok()) {
+                CMDS.send(Cmd::SpiSpeed { mhz }).await;
+            }
+        }
+        // spitest <n>: n rounds of read/write checks on the FPGA SPI bus
+        Some("spitest") => {
+            let n = words.next().and_then(|s| s.parse::<u32>().ok()).unwrap_or(10_000);
+            CMDS.send(Cmd::SpiTest { n }).await;
+        }
         _ => {}
     }
 }

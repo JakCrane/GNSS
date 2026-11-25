@@ -9,7 +9,7 @@ const DLL_N: u32 = 10;           // dumps summed per DLL update (10 ms)
 
 const FLL_BW: f64 = 10.0;        // Hz, pull-in
 const FLL_MS: u32 = 1000;        // FLL only for the first second
-const PLL_BW: f64 = 15.0;        // Hz
+const PLL_BW: f64 = 40.0;        // Hz
 const FLL_ASSIST_BW: f64 = 2.0;  // Hz, keeps helping once the PLL is on
 
 pub struct Tracker {

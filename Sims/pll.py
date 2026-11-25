@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Offline carrier tracking + navigation bit/frame sync on a recorded 1 ms stream.
 
-Input is a run folder from track.py (prompts.bin + track.csv), recorded while
+Input is a run folder from track.py (prompts_ch<n>.bin + channels.csv, or an
+older single-channel run's prompts.bin + track.csv), recorded while
 the board's DLL held the code but the carrier NCO stayed fixed. The prompt
 then rotates at whatever carrier error is left; this script does the FLL/PLL
 in software, then:
@@ -14,11 +15,12 @@ in software, then:
      10 words of each subframe, reads subframe ID and TOW from the HOW word
 
 Outputs go into the run folder:
-  pll_out.npz    t_ms, I, Q (after PLL), freq_hz, lock, bits, bit_ms
-  subframes.txt  every parity-checked subframe: bit index, ID, TOW, GPS time
+  pll_out_ch<n>.npz    t_ms, I, Q (after PLL), freq_hz, lock, bits, bit_ms
+  subframes_ch<n>.txt  every parity-checked subframe: bit index, ID, TOW, GPS time
+  (no _ch<n> suffix for an old single-channel run)
 
 Usage:
-  python3 pll.py RUN_DIR [--pll-bw HZ] [--fll-bw HZ] [--fll-secs S] [--plot]
+  python3 pll.py RUN_DIR [--ch N ...] [--pll-bw HZ (default 40)] [--fll-bw HZ] [--fll-secs S] [--plot]
   python3 pll.py --selftest [--cn0 DBHZ] [--plot]
 
 --selftest generates a synthetic recording (real subframe structure, parity,
@@ -27,6 +29,7 @@ frequency offset + drift, missed dumps) and checks the whole chain.
 import argparse
 import csv
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -53,9 +56,21 @@ PARITY = [
 
 
 # ---------------------------------------------------------------- input
-def load_run(run_dir: str):
-    """Prompts on a gap-free 1 ms grid (missed dumps = 0), plus PRN and Doppler."""
-    p = load_prompts(os.path.join(run_dir, "prompts.bin"))
+def run_channels(run_dir: str):
+    """Channels with a DLL-only recording in this run folder. Multi-channel runs
+    have prompts_ch<n>.bin; older single-channel runs have prompts.bin (-> [None])."""
+    chans = sorted(int(m.group(1)) for f in os.listdir(run_dir)
+                   for m in [re.fullmatch(r"prompts_ch(\d)\.bin", f)] if m)
+    if chans:
+        return chans
+    return [None] if os.path.exists(os.path.join(run_dir, "prompts.bin")) else []
+
+
+def load_run(run_dir: str, ch=None):
+    """Prompts on a gap-free 1 ms grid (missed dumps = 0), plus PRN and Doppler.
+    ch=None reads an old single-channel run (prompts.bin)."""
+    name = "prompts.bin" if ch is None else f"prompts_ch{ch}.bin"
+    p = load_prompts(os.path.join(run_dir, name))
     d = p["dumps"].astype(np.int64)
     step = np.diff(d) % 256
     step[step == 0] = 256
@@ -67,11 +82,17 @@ def load_run(run_dir: str):
     have[idx] = True
 
     prn, doppler = None, None
+    chan_csv = os.path.join(run_dir, "channels.csv")
     csv_path = os.path.join(run_dir, "track.csv")
-    if os.path.exists(csv_path):
+    if ch is not None and os.path.exists(chan_csv):
+        with open(chan_csv) as f:
+            for row in csv.DictReader(f):
+                if int(row["ch"]) == ch:
+                    prn, doppler = int(row["prn"]), float(row["doppler_hz"])
+    elif os.path.exists(csv_path):
         with open(csv_path) as f:
             row = next(csv.DictReader(f), None)
-            if row:
+            if row and row.get("prn"):
                 prn, doppler = int(row["prn"]), float(row["doppler_hz"])
     return z, have, prn, doppler
 
@@ -88,7 +109,7 @@ def initial_freq(z: np.ndarray, have: np.ndarray, secs: float = 2.0) -> float:
     return f2 / 2
 
 
-def track_carrier(z, have, f0, pll_bw=15.0, fll_bw=10.0, fll_secs=1.0, fll_assist_bw=2.0):
+def track_carrier(z, have, f0, pll_bw=40.0, fll_bw=10.0, fll_secs=1.0, fll_assist_bw=5.0):
     """FLL for the first `fll_secs`, then 2nd-order Costas PLL with a weak FLL
     assist. Returns wiped-off prompt (I + jQ), loop frequency (Hz) per ms."""
     n = len(z)
@@ -223,9 +244,12 @@ def gps_time_str(tow_count: int) -> str:
 
 
 # ---------------------------------------------------------------- run
-def analyse(run_dir, pll_bw, fll_bw, fll_secs, plot, quiet=False):
+def analyse(run_dir, pll_bw, fll_bw, fll_secs, plot, quiet=False, ch=None):
     say = (lambda *a: None) if quiet else print
-    z, have, prn, doppler = load_run(run_dir)
+    z, have, prn, doppler = load_run(run_dir, ch)
+    sfx = "" if ch is None else f"_ch{ch}"                   # output file suffix
+    if ch is not None:
+        say(f"\n======== channel {ch}")
     n_missing = int((~have).sum())
     say(f"{run_dir}: {len(z)} ms ({len(z) / 1000:.1f} s), {n_missing} missed dumps"
         + (f", PRN {prn}, NCO Doppler {doppler:+.1f} Hz" if prn is not None else ""))
@@ -268,9 +292,9 @@ def analyse(run_dir, pll_bw, fll_bw, fll_secs, plot, quiet=False):
                      f"{s['id']:11d}  {s['tow']:9d}  {gps_time_str(s['tow'])}")
     for ln in lines[1:]:
         say("  " + ln)
-    with open(os.path.join(run_dir, "subframes.txt"), "w") as f:
+    with open(os.path.join(run_dir, f"subframes{sfx}.txt"), "w") as f:
         f.write("\n".join(lines) + "\n")
-    np.savez(os.path.join(run_dir, "pll_out.npz"), t_ms=np.arange(len(z)), I=I, Q=Q,
+    np.savez(os.path.join(run_dir, f"pll_out{sfx}.npz"), t_ms=np.arange(len(z)), I=I, Q=Q,
              freq_hz=freq, lock=lock, have=have, bits=soft, bit_ms=bit_ms, bit_offset=offset)
 
     if plot:
@@ -417,7 +441,11 @@ def selftest(cn0: float, plot: bool, pll_bw: float, fll_bw: float, fll_secs: flo
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run_dir", nargs="?")
-    ap.add_argument("--pll-bw", type=float, default=15.0, help="PLL noise bandwidth, Hz")
+    ap.add_argument("--ch", type=int, nargs="+", help="channel(s) to process (default: all)")
+    # 40 Hz: the first real recording (PRN 32, 2026-11-25) had carrier wander that a
+    # 15 Hz loop kept slipping on (44% lock, 0 subframes); 40 Hz held 90-100% and
+    # decoded 6 subframes. Synthetic self-tests pass at 38-45 dB-Hz either way.
+    ap.add_argument("--pll-bw", type=float, default=40.0, help="PLL noise bandwidth, Hz")
     ap.add_argument("--fll-bw", type=float, default=10.0, help="FLL bandwidth during pull-in, Hz")
     ap.add_argument("--fll-secs", type=float, default=1.0, help="FLL-only pull-in time, s")
     ap.add_argument("--plot", action="store_true")
@@ -427,7 +455,11 @@ def main() -> None:
     if a.selftest:
         selftest(a.cn0, a.plot, a.pll_bw, a.fll_bw, a.fll_secs)
     elif a.run_dir:
-        analyse(a.run_dir, a.pll_bw, a.fll_bw, a.fll_secs, a.plot)
+        chans = a.ch if a.ch else run_channels(a.run_dir)
+        if not chans:
+            sys.exit(f"no prompts*.bin in {a.run_dir}")
+        for ch in chans:
+            analyse(a.run_dir, a.pll_bw, a.fll_bw, a.fll_secs, a.plot, ch=ch)
     else:
         ap.error("give a run folder, or --selftest")
 

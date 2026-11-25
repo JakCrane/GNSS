@@ -23,9 +23,6 @@ module top (
     logic busy;
     logic [7:0] rdata;
 
-    logic [15:0] ch_slew; logic ch_slew_load; 
-
-
     sync2  #(.INIT(1'b0)) ld_sync_i ( // parameter redundant for now but for readability
         .clk(clk), 
         .raw_data(rf_ld),
@@ -61,34 +58,39 @@ module top (
         .tx_taken  (tx_taken)
     );
 
-    logic signed [19:0] ie, qe, ip, qp, il, ql;
-    logic               dump;
+    localparam int NCH = 4;                     // tracking channels
+
     wire signed [2:0] sample = i1_sync ? (i0_sync ?  3'sd3 :  3'sd1)
                                    : (i0_sync ? -3'sd3 : -3'sd1);
 
-    channel ch0 (
-        .clk(clk), 
-        .reset(ch_reset), 
-        .prn(ch_prn),
-        .code_fword(ch_code_fword), 
-        .carrier_fword(ch_carr_fword), 
-        .sample(sample),
-        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql), 
-        .dump(dump),
-        .early(), 
-        .prompt(), 
-        .late(), 
-        .epoch(),
-        .slew(ch_slew),
-        .slew_load(ch_slew_load)
-    );
+    // per-channel buses: channel i in bits [i*W +: W]
+    logic [NCH-1:0]    ch_reset, ch_slew_load, dump;
+    logic [NCH*6-1:0]  ch_prn;
+    logic [NCH*32-1:0] ch_code_fword, ch_carr_fword;
+    logic [NCH*16-1:0] ch_slew;
+    logic [NCH*20-1:0] ie, qe, ip, qp, il, ql;
+
+    for (genvar i = 0; i < NCH; i++) begin : g_ch
+        channel ch (
+            .clk           (clk),
+            .reset         (ch_reset[i]),
+            .prn           (ch_prn[i*6 +: 6]),
+            .code_fword    (ch_code_fword[i*32 +: 32]),
+            .carrier_fword (ch_carr_fword[i*32 +: 32]),
+            .sample        (sample),
+            .ie (ie[i*20 +: 20]), .qe (qe[i*20 +: 20]),
+            .ip (ip[i*20 +: 20]), .qp (qp[i*20 +: 20]),
+            .il (il[i*20 +: 20]), .ql (ql[i*20 +: 20]),
+            .dump          (dump[i]),
+            .early(), .prompt(), .late(), .epoch(),
+            .slew          (ch_slew[i*16 +: 16]),
+            .slew_load     (ch_slew_load[i])
+        );
+    end
 
     logic cap_start, cap_next;
-    logic        ch_reset;
-    logic [5:0]  ch_prn;
-    logic [31:0] ch_code_fword, ch_carr_fword;
 
-    regs regs_i (
+    regs #(.NCH(NCH)) regs_i (
         .clk            (clk),
         .rx_byte        (rx_byte),
         .rx_valid       (rx_valid),
@@ -105,10 +107,10 @@ module top (
         .ch_prn         (ch_prn),
         .ch_code_fword  (ch_code_fword),
         .ch_carr_fword  (ch_carr_fword),
-        .dump           (dump),
-        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql),
         .ch_slew        (ch_slew),
-        .ch_slew_load   (ch_slew_load)
+        .ch_slew_load   (ch_slew_load),
+        .dump           (dump),
+        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql)
     );
 
     capture cap (

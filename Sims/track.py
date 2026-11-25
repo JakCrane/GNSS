@@ -1,44 +1,47 @@
 #!/usr/bin/env python3
-"""Capture -> acquire -> point the FPGA channel at a satellite -> log tracking.
+"""Capture -> acquire -> put the best satellites on the FPGA's channels -> log tracking.
 
 One command for field use. Everything is saved in a timestamped folder so it
 can be post-processed later:
 
     runs/YYYYmmdd_HHMMSS/
-        capture.bin      raw 2-bit samples (same format as capture.py)
-        acquisition.txt  PRN / ratio / Doppler / code phase table
-        search.txt       code-phase search result for each PRN tried
-        track.csv        one row per correlator line from the board (10 Hz)
-        prompts_pll.bin  same, for the part of the run with the carrier loop on
-        prompts.bin      every 1 ms dump while only the DLL runs: 19-byte
-                         records (6 x int24 LE: ie qe ip qp il ql, then the
-                         8-bit dump counter). Read with load_prompts().
+        capture.bin            raw 2-bit samples (same format as capture.py)
+        acquisition.txt        PRN / ratio / Doppler / code phase table
+        search.txt             code-phase search result for each PRN tried
+        channels.csv           which PRN ended up on which channel (+ Doppler, search ratio)
+        track.csv              one row per status line from the board (10 Hz per channel)
+        prompts_ch<n>.bin      every 1 ms dump of channel n while only the DLL runs:
+                               19-byte records (6 x int24 LE: ie qe ip qp il ql, then
+                               the 8-bit dump counter). Read with load_prompts().
+        prompts_pll_ch<n>.bin  same, for the part of the run with the carrier loop on
+        timing.txt             the board's "loop:" timing reports
 
-After acquisition it points the channel at each acquired PRN (strongest
-first), runs the board's code-phase search ("srch"), and takes the first one
-whose search peak clearly beats the noise. It then closes the tracking loops
-("trk") and logs. track.csv gets the DLL discriminator and code correction
-while the loops are closed.
+After acquisition it fills channels 0..N-1 in turn: for each, it points the
+channel at the next-strongest acquired PRN ("ch"), runs the board's
+code-phase search ("srch"), and starts the DLL ("trk") straight away if the
+search peak clearly beats the noise; otherwise it tries the next PRN on that
+channel. After --dll-secs it closes the carrier loop on every channel
+("trk <n> pll").
 
 Usage:
-    python3 track.py [port] [--prn N] [--doppler HZ] [--secs S] [--out DIR]
-                     [--no-search] [--open-loop] [--no-pll] [--dll-secs S] [--flip-csign]
+    python3 track.py [port] [--prn N [N ...]] [--doppler HZ] [--nch N] [--secs S]
+                     [--out DIR] [--dll-secs S] [--no-pll] [--flip-csign]
 
-    --prn N       track this PRN instead of the strongest one found
-    --doppler HZ  use this Doppler instead of the acquired one (needs --prn)
+    --prn N ...   use these PRNs (in this order) instead of the strongest found
+    --doppler HZ  Doppler for any --prn that acquisition didn't find
+    --min-ratio R search ratio needed to start tracking (default 8; noise gives ~4-5)
+    --nch N       channels to use (default: what the board reports, "nch:")
     --secs S      stop logging after S seconds (default: until Ctrl-C)
     --out DIR     parent folder for runs (default: runs)
-    --no-search   skip the code-phase search (firmware without "srch")
-    --open-loop   don't close the loops (old open-loop behaviour)
-    --dll-secs S  DLL-only for S seconds first (recording for pll.py), then
-                  switch to DLL+PLL in the same run. Default 300; 0 = PLL at once
+    --dll-secs S  DLL-only for S seconds first (recording for pll.py), then switch
+                  every channel to DLL+PLL. Default 300; 0 = PLL at once
     --no-pll      DLL only for the whole run (carrier loop never closed)
     --flip-csign  flip the carrier loop's sign first (if the FLL ran away last time)
 
 Default (field run): python3 track.py
-    = capture, acquire, search, 5 min DLL-only recording, then live DLL+PLL
-      until Ctrl-C. If the PLL runs away, re-run with:
-      python3 track.py --dll-secs 10 --flip-csign
+    = capture, acquire, up to 4 satellites searched + tracked, 5 min DLL-only
+      recording, then live DLL+PLL on all of them until Ctrl-C.
+    If the PLL runs away:  python3 track.py --dll-secs 10 --flip-csign
 """
 import argparse
 import csv
@@ -54,13 +57,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from acquire import (FS, F_IF, SAMPLES_PER_MS, CODE_LEN, DOPPLER_MAX,   # noqa: E402
                      DOPPLER_STEP, THRESHOLD, ca_code, load, acquire)
 
-# Matches: "E   123,   -45  P  6789,  -12  L   101,   22  d=17"
-# plus, while the loops are closed: "  dll=-0.012 corr=-0.0240"
-# plus, with the carrier loop on:    " f=+1138.52 lock=+0.97"
-CORR_RE = re.compile(
-    r"E\s*(-?\d+),\s*(-?\d+)\s+P\s*(-?\d+),\s*(-?\d+)\s+L\s*(-?\d+),\s*(-?\d+)\s+d=(\d+)"
+SEARCH_TIMEOUT = 60      # s; a full search takes ~10 s
+SEARCH_MIN_RATIO = 8.0   # noise alone gives ~4-5
+
+# Status line, channel-tagged:
+#   "c2 E   123,   -45  P  6789,  -12  L   101,   22  d=17"
+#   plus, while the loops are closed: "  dll=-0.012 corr=-0.0240"
+#   plus, with the carrier loop on:    " f=+1138.52 lock=+0.97"
+STATUS_RE = re.compile(
+    r"^c(\d)\s+E\s*(-?\d+),\s*(-?\d+)\s+P\s*(-?\d+),\s*(-?\d+)\s+L\s*(-?\d+),\s*(-?\d+)\s+d=(\d+)"
     r"(?:\s+dll=([-+]?[\d.]+)\s+corr=([-+]?[\d.]+))?"
     r"(?:\s+f=([-+]?[\d.]+)\s+lock=([-+]?[\d.]+))?")
+STREAM_RE = re.compile(r"^S(\d) ([0-9a-f]+)$")
+TRK_RE = re.compile(r"^trk: n=(\d) on \((dll(?:\+pll)?)\)")
 
 
 # ---------------------------------------------------------------- capture
@@ -133,139 +142,6 @@ def acquire_all(path: str, report_path: str):
     return [(prn, refined[prn], ratio) for prn, ratio, _, _ in acquired]
 
 
-# ---------------------------------------------------------------- board commands
-def wait_for(s: serial.Serial, prefix: str, timeout: float):
-    """Read lines until one starts with `prefix`; return it, or None on timeout."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        line = s.readline().decode(errors="ignore").strip()
-        if line.startswith(prefix):
-            return line
-    return None
-
-
-def point(s: serial.Serial, prn: int, doppler: float) -> bool:
-    """Set the channel's PRN and Doppler. True once the board confirms."""
-    s.reset_input_buffer()
-    s.write(f"ch {prn} {doppler:.1f}\r\n".encode())
-    line = wait_for(s, "ch:", 3)
-    if line:
-        print(line)
-    return line is not None
-
-
-def search(s: serial.Serial):
-    """Run the code-phase search on the board. Returns (ratio, raw line) or (None, None)."""
-    s.write(b"srch\r\n")
-    print("searching code phase (~10 s)...")
-    line = wait_for(s, "search:", SEARCH_TIMEOUT)
-    if line is None:
-        return None, None
-    print(line)
-    m = re.search(r"ratio\s+([\d.]+)", line)
-    return (float(m.group(1)) if m else None), line
-
-
-def start_tracking(s: serial.Serial, pll: bool) -> bool:
-    """Close the loops on the board (DLL, plus FLL/PLL if pll). True once it confirms."""
-    s.write(b"trk pll\r\n" if pll else b"trk\r\n")
-    line = wait_for(s, "trk:", 3)
-    if line:
-        print(line)
-    return line is not None
-
-
-# ---------------------------------------------------------------- tracking log
-class Segment:
-    """One 1 ms stream file plus its stats. A run has a DLL-only segment
-    (prompts.bin: carrier NCO fixed, for pll.py) and/or a PLL segment
-    (prompts_pll.bin: carrier NCO steered by the board)."""
-
-    def __init__(self, path: str):
-        self.path = path
-        self.f = open(path, "wb")
-        self.stats = StreamStats()
-
-    def add_line(self, hexpart: str):
-        try:
-            raw = bytes.fromhex(hexpart)
-        except ValueError:
-            self.stats.bad_lines += 1
-            return
-        if len(raw) % RECORD_BYTES:
-            self.stats.bad_lines += 1             # truncated line: drop it, the gap shows up
-            return
-        self.f.write(raw)
-        self.f.flush()
-        self.stats.add(raw)
-
-    def close(self, name: str):
-        self.f.close()
-        if self.stats.records == 0:
-            os.remove(self.path)                  # nothing streamed in this mode
-        else:
-            print(f"1 ms stream ({name}, {os.path.basename(self.path)}): {self.stats.summary()}")
-
-
-def track(s: serial.Serial, prn: int, doppler: float, run_dir: str, secs,
-          mode: str, switch_to_pll_at=None):
-    """Log until `secs` (or Ctrl-C). mode = "open", "dll" or "pll". If
-    switch_to_pll_at is set, send "trk pll" that many seconds in."""
-    t0 = time.time()
-    segs = {"dll": Segment(os.path.join(run_dir, "prompts.bin")),
-            "pll": Segment(os.path.join(run_dir, "prompts_pll.bin"))}
-    cur = "pll" if mode == "pll" else "dll"
-    switched = switch_to_pll_at is None
-
-    with open(os.path.join(run_dir, "track.csv"), "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["t_s", "unix_time", "prn", "doppler_hz",
-                    "ie", "qe", "ip", "qp", "il", "ql", "dumps",
-                    "dll_disc", "code_corr_chips_s",          # blank when open loop
-                    "mode", "carrier_doppler_hz", "pll_lock"])  # last two: carrier loop on
-        stop = "Ctrl-C to stop" if secs is None else f"{secs:.0f} s, or Ctrl-C"
-        print(f"\nlogging PRN {prn} at {doppler:+.1f} Hz, mode {mode}  ({stop})")
-        if not switched:
-            print(f"(switching to DLL+PLL after {switch_to_pll_at:.0f} s)")
-        print("    t      |E|     |P|     |L|   P phase     dll     corr         f    lock")
-        try:
-            while secs is None or time.time() - t0 < secs:
-                if not switched and time.time() - t0 >= switch_to_pll_at:
-                    s.write(b"trk pll\r\n")         # segment changes when the board confirms
-                    switched = True
-
-                line = s.readline().decode(errors="ignore").strip()
-
-                if line.startswith("S "):          # 1 ms stream: 10 raw 19-byte records
-                    segs[cur].add_line(line[2:])
-                    continue
-                if line.startswith(("trk:", "csign:")):
-                    print(line)
-                    if line.startswith("trk:"):
-                        cur = "pll" if "pll" in line else "dll"
-                        mode = cur
-                    continue
-
-                m = CORR_RE.search(line)
-                if not m:
-                    continue
-                ie, qe, ip, qp, il, ql, d = map(int, m.groups()[:7])
-                dll, corr, fhz, lock = (g or "" for g in m.groups()[7:11])
-                now = time.time()
-                w.writerow([f"{now - t0:.3f}", f"{now:.3f}", prn, doppler,
-                            ie, qe, ip, qp, il, ql, d, dll, corr, mode, fhz, lock])
-                f.flush()                          # survive a yanked cable
-                print(f"{now - t0:6.1f}  {np.hypot(ie, qe):7.0f} {np.hypot(ip, qp):7.0f} "
-                      f"{np.hypot(il, ql):7.0f}   {np.degrees(np.arctan2(qp, ip)):+6.0f}"
-                      f"   {dll:>7} {corr:>8} {fhz:>9} {lock:>7}")
-        except KeyboardInterrupt:
-            pass
-
-    print()
-    for name, seg in segs.items():
-        seg.close(name)
-
-
 # ---------------------------------------------------------------- 1 ms stream
 RECORD_BYTES = 19        # same layout as registers 0x20..0x32: 6 x int24 LE + dump count
 
@@ -299,7 +175,7 @@ class StreamStats:
 
 
 def load_prompts(path: str) -> dict:
-    """Read prompts.bin into numpy arrays: ie qe ip qp il ql (int32) and dumps (uint8).
+    """Read a prompts*.bin into numpy arrays: ie qe ip qp il ql (int32) and dumps (uint8).
     For offline processing (pll.py)."""
     raw = np.fromfile(path, dtype=np.uint8)
     raw = raw[: len(raw) // RECORD_BYTES * RECORD_BYTES].reshape(-1, RECORD_BYTES)
@@ -315,22 +191,189 @@ def load_prompts(path: str) -> dict:
     return out
 
 
+class Segment:
+    """One channel's 1 ms stream for one mode, in its own file."""
+
+    def __init__(self, path: str):
+        self.path = path
+        self.f = None                      # opened on first data, so unused modes leave no file
+        self.stats = StreamStats()
+
+    def add_hex(self, hexpart: str):
+        try:
+            raw = bytes.fromhex(hexpart)
+        except ValueError:
+            self.stats.bad_lines += 1
+            return
+        if len(raw) % RECORD_BYTES:
+            self.stats.bad_lines += 1      # truncated line: drop it, the gap shows up
+            return
+        if self.f is None:
+            self.f = open(self.path, "wb")
+        self.f.write(raw)
+        self.f.flush()                     # survive a yanked cable
+        self.stats.add(raw)
+
+    def close(self):
+        if self.f:
+            self.f.close()
+
+
+# ---------------------------------------------------------------- the logger
+class Logger:
+    """Everything the board sends goes through handle(): stream lines, status lines
+    and mode changes are recorded whenever they arrive, including while we're
+    waiting for a command's reply during channel setup."""
+
+    def __init__(self, run_dir: str):
+        self.run_dir = run_dir
+        self.t0 = time.time()
+        self.chan = {}                     # ch -> dict(prn, doppler, mode, last status)
+        self.segs = {}                     # (ch, mode) -> Segment
+        self.csv_f = open(os.path.join(run_dir, "track.csv"), "w", newline="")
+        self.csv = csv.writer(self.csv_f)
+        self.csv.writerow(["t_s", "unix_time", "ch", "prn", "doppler_hz",
+                           "ie", "qe", "ip", "qp", "il", "ql", "dumps",
+                           "dll_disc", "code_corr_chips_s",          # blank when not tracking
+                           "mode", "carrier_doppler_hz", "pll_lock"])  # last two: PLL on
+        self.timing_f = open(os.path.join(run_dir, "timing.txt"), "w")
+        self.last_print = 0.0
+
+    def set_channel(self, ch: int, prn: int, doppler: float):
+        self.chan[ch] = {"prn": prn, "doppler": doppler, "mode": "open", "last": None}
+
+    def _seg(self, ch: int, mode: str) -> Segment:
+        key = (ch, mode)
+        if key not in self.segs:
+            name = f"prompts_ch{ch}.bin" if mode == "dll" else f"prompts_pll_ch{ch}.bin"
+            self.segs[key] = Segment(os.path.join(self.run_dir, name))
+        return self.segs[key]
+
+    def handle(self, line: str) -> str:
+        m = STREAM_RE.match(line)
+        if m:
+            ch = int(m.group(1))
+            mode = self.chan.get(ch, {}).get("mode", "open")
+            if mode in ("dll", "pll"):
+                self._seg(ch, mode).add_hex(m.group(2))
+            return line
+        m = STATUS_RE.match(line)
+        if m:
+            ch = int(m.group(1))
+            ie, qe, ip, qp, il, ql, d = map(int, m.groups()[1:8])
+            dll, corr, fhz, lock = (g or "" for g in m.groups()[8:12])
+            c = self.chan.get(ch, {"prn": "", "doppler": "", "mode": "open", "last": None})
+            now = time.time()
+            self.csv.writerow([f"{now - self.t0:.3f}", f"{now:.3f}", ch, c["prn"], c["doppler"],
+                               ie, qe, ip, qp, il, ql, d, dll, corr, c["mode"], fhz, lock])
+            self.csv_f.flush()
+            if ch in self.chan:
+                self.chan[ch]["last"] = (np.hypot(ie, qe), np.hypot(ip, qp), np.hypot(il, ql),
+                                         dll, fhz, lock)
+            return line
+        m = TRK_RE.match(line)
+        if m:
+            ch = int(m.group(1))
+            if ch in self.chan:
+                self.chan[ch]["mode"] = "pll" if m.group(2) == "dll+pll" else "dll"
+            print(line)
+            return line
+        if line.startswith("loop:"):
+            self.timing_f.write(f"{time.time() - self.t0:8.1f}  {line}\n")
+            self.timing_f.flush()
+        return line
+
+    def print_row(self):
+        """One line per second: every tracked channel's E/P/L and loop state."""
+        now = time.time()
+        if now - self.last_print < 1.0:
+            return
+        self.last_print = now
+        parts = []
+        for ch in sorted(self.chan):
+            c = self.chan[ch]
+            if c["last"] is None or c["mode"] == "open":
+                continue
+            e, p, l, dll, fhz, lock = c["last"]
+            s = f"ch{ch} PRN{c['prn']:>2} P{p:6.0f} E{e:5.0f} L{l:5.0f} dll{dll:>7}"
+            if c["mode"] == "pll":
+                s += f" f{fhz:>8} lock{lock:>6}"
+            parts.append(s)
+        if parts:
+            print(f"{now - self.t0:6.0f}s  " + "  |  ".join(parts))
+
+    def close(self):
+        self.csv_f.close()
+        self.timing_f.close()
+        print()
+        for (ch, mode), seg in sorted(self.segs.items()):
+            seg.close()
+            print(f"1 ms stream ch{ch} {mode:3s} ({os.path.basename(seg.path)}): {seg.stats.summary()}")
+
+
+# ---------------------------------------------------------------- board commands
+def read_line(s: serial.Serial, log: Logger) -> str:
+    return log.handle(s.readline().decode(errors="ignore").strip())
+
+
+def wait_for(s: serial.Serial, log: Logger, prefix: str, timeout: float):
+    """Read (and log) lines until one starts with `prefix`; return it, or None on timeout."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        line = read_line(s, log)
+        if line.startswith(prefix):
+            return line
+    return None
+
+
+def point(s, log, ch: int, prn: int, doppler: float) -> bool:
+    s.write(f"ch {ch} {prn} {doppler:.1f}\r\n".encode())
+    line = wait_for(s, log, "ch:", 3)
+    if line:
+        log.set_channel(ch, prn, doppler)
+        print(line)
+    return line is not None
+
+
+def search(s, log, ch: int):
+    """Code-phase search on one channel. Returns (ratio, raw line) or (None, None)."""
+    s.write(f"srch {ch}\r\n".encode())
+    print(f"  searching code phase on ch{ch} (~10 s; other channels coast meanwhile)...")
+    line = wait_for(s, log, "search:", SEARCH_TIMEOUT)
+    if line is None:
+        return None, None
+    print("  " + line)
+    m = re.search(r"ratio\s+([\d.]+)", line)
+    return (float(m.group(1)) if m else None), line
+
+
+def start_tracking(s, log, ch: int, pll: bool) -> bool:
+    s.write(f"trk {ch}{' pll' if pll else ''}\r\n".encode())
+    return wait_for(s, log, "trk:", 3) is not None   # Logger prints it and sets the mode
+
+
+def read_nch(s) -> int:
+    """The board prints "nch: N" when the port opens."""
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        line = s.readline().decode(errors="ignore").strip()
+        m = re.match(r"nch:\s*(\d+)", line)
+        if m:
+            return int(m.group(1))
+    return 0
+
+
 # ---------------------------------------------------------------- main
-SEARCH_TIMEOUT = 60      # s; a full search should take ~10 s
-SEARCH_MIN_RATIO = 8.0   # noise alone gives ~4-5
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("port", nargs="?", default="/dev/ttyACM0")
-    ap.add_argument("--prn", type=int)
+    ap.add_argument("--prn", type=int, nargs="+")
     ap.add_argument("--doppler", type=float)
+    ap.add_argument("--min-ratio", type=float, default=SEARCH_MIN_RATIO,
+                    help="search ratio needed to start tracking (0 = always; for bench tests)")
+    ap.add_argument("--nch", type=int)
     ap.add_argument("--secs", type=float)
     ap.add_argument("--out", default="runs")
-    ap.add_argument("--no-search", action="store_true",
-                    help="skip the code-phase search (old firmware)")
-    ap.add_argument("--open-loop", action="store_true",
-                    help="don't send trk: leave the NCOs fixed")
     ap.add_argument("--pll", action=argparse.BooleanOptionalAction, default=True,
                     help="close the carrier loop after the DLL-only stage (default on; "
                          "--no-pll = DLL only for the whole run)")
@@ -340,7 +383,7 @@ def main() -> None:
     ap.add_argument("--flip-csign", action="store_true",
                     help="flip the carrier loop sign before tracking (if the FLL runs away)")
     args = ap.parse_args()
-    if args.doppler is not None and args.prn is None:
+    if args.doppler is not None and not args.prn:
         ap.error("--doppler needs --prn")
 
     run_dir = os.path.join(args.out, time.strftime("%Y%m%d_%H%M%S"))
@@ -349,7 +392,9 @@ def main() -> None:
 
     with serial.Serial(args.port, timeout=1) as s:
         s.dtr = True
-        time.sleep(0.3)                            # let the boot messages go by
+        board_nch = read_nch(s)
+        nch = args.nch or board_nch or 4
+        print(f"board reports nch: {board_nch or '?'}; using {nch} channel(s)")
 
         data = capture(s)
         with open(cap_path, "wb") as f:
@@ -359,61 +404,81 @@ def main() -> None:
         print("acquiring (all 32 PRNs)...")
         found = acquire_all(cap_path, os.path.join(run_dir, "acquisition.txt"))
 
-        # Candidates to try, best first.
-        if args.prn is not None:
-            if args.doppler is not None:
-                candidates = [(args.prn, args.doppler)]
-            else:
-                match = [(p, d) for p, d, _ in found if p == args.prn]
-                if not match:
-                    sys.exit(f"PRN {args.prn} not acquired; give --doppler to force it")
-                candidates = match
-        else:
-            if not found:
-                sys.exit("no satellites acquired - capture saved, try again with a clearer sky view")
-            candidates = [(p, d) for p, d, _ in found]
-
-        # Point + search each candidate until one gives a clear code peak.
-        chosen = None
-        with open(os.path.join(run_dir, "search.txt"), "w") as log:
-            for prn, doppler in candidates:
-                print(f"\nPRN {prn} at {doppler:+.1f} Hz")
-                if not point(s, prn, doppler):
-                    sys.exit("board never echoed 'ch:' - is the firmware up to date?")
-                if args.no_search:
-                    chosen = (prn, doppler)
-                    break
-                ratio, line = search(s)
-                log.write(f"PRN {prn} doppler {doppler:+.1f}: {line or 'no reply'}\n")
-                if ratio is None:
-                    print("no 'search:' reply - firmware without srch? (use --no-search)")
-                    continue
-                if ratio >= SEARCH_MIN_RATIO:
-                    chosen = (prn, doppler)
-                    break
-                print(f"ratio {ratio:.1f} < {SEARCH_MIN_RATIO}: no clear peak, trying next")
-
-        mode, switch_at = "open", None
-        if chosen is None:
-            prn, doppler = candidates[0]
-            print(f"\nno candidate gave a clear peak; logging PRN {prn} open loop anyway")
-            point(s, prn, doppler)
-        else:
-            prn, doppler = chosen
-            # Only close the loops on a real peak: a DLL fed pure noise just wanders.
-            if not args.open_loop:
-                if args.flip_csign:
-                    s.write(b"csign\r\n")
-                    print(wait_for(s, "csign:", 3) or "no 'csign:' reply")
-                first_pll = args.pll and not args.dll_secs
-                if start_tracking(s, first_pll):
-                    mode = "pll" if first_pll else "dll"
-                    if args.pll and args.dll_secs:
-                        switch_at = args.dll_secs
+        # Candidates, best first.
+        if args.prn:
+            by_prn = {p: d for p, d, _ in found}
+            candidates = []
+            for p in args.prn:
+                if p in by_prn:
+                    candidates.append((p, by_prn[p]))
+                elif args.doppler is not None:
+                    candidates.append((p, args.doppler))
                 else:
-                    print("board never echoed 'trk:' - firmware without trk? logging open loop")
+                    print(f"PRN {p} not acquired; skipping (give --doppler to force it)")
+        else:
+            candidates = [(p, d) for p, d, _ in found]
+        if not candidates:
+            sys.exit("no satellites to track - capture saved, try again with a clearer sky view")
 
-        track(s, prn, doppler, run_dir, args.secs, mode, switch_at)
+        log = Logger(run_dir)
+        if args.flip_csign:
+            s.write(b"csign\r\n")
+            print(wait_for(s, log, "csign:", 3) or "no 'csign:' reply")
+
+        # Fill channels 0..nch-1: point, search, and track straight away on a good peak.
+        tracked = []                                           # (ch, prn, doppler, ratio)
+        first_pll = args.pll and not args.dll_secs
+        with open(os.path.join(run_dir, "search.txt"), "w") as slog:
+            queue = list(candidates)
+            for ch in range(nch):
+                while queue:
+                    prn, doppler = queue.pop(0)
+                    print(f"\nch{ch}: PRN {prn} at {doppler:+.1f} Hz")
+                    if not point(s, log, ch, prn, doppler):
+                        sys.exit("board never echoed 'ch:' - is the firmware up to date?")
+                    ratio, line = search(s, log, ch)
+                    slog.write(f"ch{ch} PRN {prn} doppler {doppler:+.1f}: {line or 'no reply'}\n")
+                    slog.flush()
+                    if ratio is None:
+                        sys.exit("no 'search:' reply - is the firmware up to date?")
+                    if ratio < args.min_ratio:
+                        print(f"  ratio {ratio:.1f} < {args.min_ratio}: no clear peak, next PRN")
+                        continue
+                    if not start_tracking(s, log, ch, first_pll):
+                        sys.exit("board never echoed 'trk:' - is the firmware up to date?")
+                    tracked.append((ch, prn, doppler, ratio))
+                    break
+                if not queue:
+                    break                                      # out of candidates
+
+        with open(os.path.join(run_dir, "channels.csv"), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["ch", "prn", "doppler_hz", "search_ratio"])
+            for row in tracked:
+                w.writerow([row[0], row[1], f"{row[2]:.1f}", f"{row[3]:.1f}"])
+
+        if not tracked:
+            log.close()
+            sys.exit("no channel got a clear code peak - capture and searches saved")
+
+        print(f"\ntracking {len(tracked)} channel(s): "
+              + ", ".join(f"ch{c}=PRN{p}" for c, p, _, _ in tracked))
+        switch_at = args.dll_secs if (args.pll and args.dll_secs) else None
+        t_log = time.time()
+        stop = "Ctrl-C to stop" if args.secs is None else f"{args.secs:.0f} s, or Ctrl-C"
+        print(f"logging ({stop})"
+              + (f"; switching to DLL+PLL after {switch_at:.0f} s" if switch_at else ""))
+        try:
+            while args.secs is None or time.time() - t_log < args.secs:
+                if switch_at is not None and time.time() - t_log >= switch_at:
+                    for ch, *_ in tracked:
+                        s.write(f"trk {ch} pll\r\n".encode())   # mode flips when the board confirms
+                    switch_at = None
+                read_line(s, log)
+                log.print_row()
+        except KeyboardInterrupt:
+            pass
+        log.close()
 
     print(f"\nall data in {run_dir}/")
 

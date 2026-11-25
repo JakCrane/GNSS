@@ -1,0 +1,7 @@
+bit_index  ms_index  inverted  subframe_id  tow_count  gps_time_of_next_subframe
+      131      2623         1            4      56469  Wed 22:06:54
+      431      8623         1            5      56470  Wed 22:07:00
+     1631     32623         0            4      56474  Wed 22:07:24
+     1931     38623         0            5      56475  Wed 22:07:30
+     2231     44623         0            1      56476  Wed 22:07:36
+     2531     50623         0            2      56477  Wed 22:07:42
