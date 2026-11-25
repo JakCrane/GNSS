@@ -30,7 +30,8 @@ pub enum Cmd {
     SetChannel { prn: u8, doppler: f64 },
     Capture,
     Search,
-    Track,
+    Track { pll: bool },
+    FlipCarrierSign,
 }
 
 pub static CMDS: Channel<CriticalSectionRawMutex, Cmd, 4> = Channel::new();
@@ -51,7 +52,11 @@ async fn handle(line: &str) {
         }
         Some("cap") => CMDS.send(Cmd::Capture).await,
         Some("srch") => CMDS.send(Cmd::Search).await,
-        Some("trk") => CMDS.send(Cmd::Track).await,
+        Some("trk") => {
+            let pll = words.next() == Some("pll");
+            CMDS.send(Cmd::Track { pll }).await
+        }
+        Some("csign") => CMDS.send(Cmd::FlipCarrierSign).await,
         _ => {}
     }
 }

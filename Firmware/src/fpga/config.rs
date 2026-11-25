@@ -5,6 +5,25 @@ use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::time::Hertz;
 use crate::config::FpgaPins;
 
+// FPGA register map (must match Gateware/regs.sv)
+const REG_STATUS:   u8 = 0x01;   // bit 0 = PLL lock, bit 1 = capture busy
+const REG_CAP_CTRL: u8 = 0x02;   // write bit 0 = 1: start a capture
+const REG_CAP_DATA: u8 = 0x03;   // each read = next captured byte
+const REG_CH_CTRL:  u8 = 0x10;   // then PRN (0x11), code fword (0x12..15), carrier fword (0x16..19)
+const REG_CODE:     u8 = 0x12;   // code fword, then carrier fword
+const REG_SLEW:     u8 = 0x1A;   // u16 LE: delay the code by N samples
+const REG_RESULTS:  u8 = 0x20;   // 6 x int24 LE (ie qe ip qp il ql) + dump count
+const REG_DUMPCNT:  u8 = 0x32;   // 8-bit count of 1 ms dumps
+
+const STATUS_CAP_BUSY: u8 = 0x02;
+const CAP_START:       u8 = 0x01;
+
+const SPI_READ_MASK: u8 = 0x7F;  // header bit 7 = 0: read
+const SPI_WRITE_BIT: u8 = 0x80;  // header bit 7 = 1: write
+
+/// Bytes in one correlator snapshot (REG_RESULTS..=REG_DUMPCNT).
+pub const RESULTS_BYTES: usize = 19;
+
 pub struct Fpga {
     programn: OutputOpenDrain<'static>, // PB13, has a 4.7k pull-up
     initn: Input<'static>,              // PB12
@@ -20,7 +39,7 @@ impl Fpga {
     /// off the flash bus until we deliberately boot it.
     pub fn new(pins: FpgaPins) -> Self {
         let mut spi_cfg = spi::Config::default();
-        spi_cfg.frequency = Hertz(1_000_000);
+        spi_cfg.frequency = Hertz(2_000_000);
         spi_cfg.mode = spi::MODE_0;
         spi_cfg.miso_pull = Pull::Down;
 
@@ -44,7 +63,7 @@ impl Fpga {
     /// The guard from before: PROGRAMN low while it lives.
     pub fn hold_in_reset(&mut self) -> HeldInReset<'_> {
         self.programn.set_low();
-        cortex_m::asm::delay(16_000); // busy-wait of 1ms
+        cortex_m::asm::delay(64_000); // busy-wait of 1ms
         HeldInReset { fpga: self }
     }
 
@@ -76,7 +95,7 @@ impl Fpga {
     pub fn read_regs(&mut self, addr: u8, out: &mut [u8]) -> Result<(), spi::Error> {
         let mut buf = [0u8; 33];
         let n = out.len() + 1;
-        buf[0] = addr & 0x7F; // sets msb to 0 to indicate read (safeguard)
+        buf[0] = addr & SPI_READ_MASK; // msb 0 = read (safeguard)
         self.command(&mut buf[..n])?;
         out.copy_from_slice(&buf[1..n]);       // keep everything after the header
         Ok(())
@@ -85,18 +104,18 @@ impl Fpga {
     pub fn write_regs(&mut self, addr: u8, data: &[u8]) -> Result<(), spi::Error> {
         let mut buf = [0u8; 33];
         let n = data.len() + 1;
-        buf[0] = addr | 0x80;                 // write: bit 7 = 1
+        buf[0] = addr | SPI_WRITE_BIT;
         buf[1..n].copy_from_slice(data);
         self.command(&mut buf[..n])
     }
 
     pub async fn capture(&mut self) -> Result<(), CaptureErr> {
-        self.write_regs(0x02, &[0x01])?;      // CTRL bit 0: start
+        self.write_regs(REG_CAP_CTRL, &[CAP_START])?;
         let start = Instant::now();
         loop {
             let mut status = [0u8; 1];
-            self.read_regs(0x01, &mut status)?;
-            if status[0] & 0x02 == 0 {         // bit 1: capture busy
+            self.read_regs(REG_STATUS, &mut status)?;
+            if status[0] & STATUS_CAP_BUSY == 0 {
                 return Ok(());
             }
             if start.elapsed() > Duration::from_millis(100) {
@@ -107,7 +126,7 @@ impl Fpga {
     }
 
     pub fn capture_read(&mut self, out: &mut [u8]) -> Result<(), spi::Error> {
-        self.read_regs(0x03, out)
+        self.read_regs(REG_CAP_DATA, out)
     }
 
     /// Configure the tracking channel for a PRN at a given Doppler (Hz).
@@ -121,36 +140,31 @@ impl Fpga {
         b[1] = prn;                         // 0x11 PRN
         b[2..6].copy_from_slice(&code);     // 0x12..0x15
         b[6..10].copy_from_slice(&carr);    // 0x16..0x19
-        self.write_regs(0x10, &b)
-    }
-
-    /// One snapshot of the correlators (taken atomically at frame start).
-    pub fn read_correlators(&mut self) -> Result<Correlators, spi::Error> {
-        let mut s = [0u8; 19];
-        self.read_regs(0x20, &mut s)?;
-        Ok(Correlators {
-            ie: i24(&s[0..]),  qe: i24(&s[3..]),
-            ip: i24(&s[6..]),  qp: i24(&s[9..]),
-            il: i24(&s[12..]), ql: i24(&s[15..]),
-            dumps: s[18],
-        })
+        self.write_regs(REG_CH_CTRL, &b)
     }
 
     pub fn dump_count(&mut self) -> Result<u8, spi::Error> {
         let mut c = [0u8; 1];
-        self.read_regs(0x32, &mut c)?;
+        self.read_regs(REG_DUMPCNT, &mut c)?;
         Ok(c[0])
     }
 
     /// Delay the local code by `samples` (1 sample = 1/16 chip).
     pub fn slew(&mut self, samples: u16) -> Result<(), spi::Error> {
-        self.write_regs(0x1A, &samples.to_le_bytes())
+        self.write_regs(REG_SLEW, &samples.to_le_bytes())
     }
 
     pub async fn wait_dumps(&mut self, n: u8) -> Result<(), spi::Error> {
         let start = self.dump_count()?;
         while self.dump_count()?.wrapping_sub(start) < n {
             Timer::after_micros(100).await;
+        }
+        Ok(())
+    }
+    
+    pub async fn wait_new_dump(&mut self, last: u8) -> Result<(), spi::Error> {
+        while self.dump_count()? == last {
+            Timer::after_micros(20).await;
         }
         Ok(())
     }
@@ -182,22 +196,28 @@ impl Fpga {
         self.wait_dumps(2).await?;
         Ok((best.0, best.1, total / N as u64))
     }
-        /// Set absolute code rate (chips/s) and carrier frequency (Hz at IF).
+        
+    /// Set absolute code rate (chips/s) and carrier frequency (Hz at IF).
     pub fn set_nco(&mut self, code_hz: f64, carr_hz: f64) -> Result<(), spi::Error> {
         let mut b = [0u8; 8];
         b[0..4].copy_from_slice(&fword(code_hz).to_le_bytes());   // 0x12..0x15
         b[4..8].copy_from_slice(&fword(carr_hz).to_le_bytes());   // 0x16..0x19
-        self.write_regs(0x12, &b)
+        self.write_regs(REG_CODE, &b)
     }
 
-    pub fn read_correlators_raw(&mut self, s: &mut [u8; 19]) -> Result<Correlators, spi::Error> {
-        self.read_regs(0x20, s)?;
+    pub fn read_correlators_raw(&mut self, s: &mut [u8; RESULTS_BYTES]) -> Result<Correlators, spi::Error> {
+        self.read_regs(REG_RESULTS, s)?;
         Ok(Correlators {
             ie: i24(&s[0..]),  qe: i24(&s[3..]),
             ip: i24(&s[6..]),  qp: i24(&s[9..]),
             il: i24(&s[12..]), ql: i24(&s[15..]),
             dumps: s[18],
         })
+    }
+
+    pub fn read_correlators(&mut self) -> Result<Correlators, spi::Error> {
+        let mut s = [0u8; RESULTS_BYTES];
+        self.read_correlators_raw(&mut s)
     }
 }
 

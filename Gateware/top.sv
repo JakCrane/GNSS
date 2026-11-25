@@ -20,9 +20,6 @@ module top (
     logic i0_sync;
     logic i1_sync;
 
-    logic [7:0] ratio0;
-    logic [7:0] ratio1;
-
     logic busy;
     logic [7:0] rdata;
 

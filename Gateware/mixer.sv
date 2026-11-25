@@ -37,8 +37,8 @@ module carrier_mixer (
     logic signed [3:0] q_mix_r = '0;
 
     always_ff @(posedge clk) begin
-        i_mix_r = sample * lo_cos;
-        q_mix_r = sample * lo_sin;
+        i_mix_r <= sample * lo_cos;
+        q_mix_r <= sample * lo_sin;
     end
 
 

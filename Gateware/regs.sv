@@ -30,7 +30,12 @@ module regs (
     localparam logic [6:0] A_STATUS  = 7'h01;
     localparam logic [6:0] A_CTRL    = 7'h02;   // write bit 0 = 1 → start capture
     localparam logic [6:0] A_CAPDATA = 7'h03;   // each read = next captured byte
-    localparam logic [6:0] A_RESULTS = 7'h20;          // with the other localparams
+    localparam logic [6:0] A_CH_CTRL = 7'h10;   // bit 0 = hold channel in reset
+    localparam logic [6:0] A_CH_PRN  = 7'h11;
+    localparam logic [6:0] A_CODE    = 7'h12;   // 4 bytes LE: 0x12..0x15
+    localparam logic [6:0] A_CARR    = 7'h16;   // 4 bytes LE: 0x16..0x19
+    localparam logic [6:0] A_SLEW    = 7'h1A;   // 2 bytes LE: 0x1A..0x1B, high byte arms it
+    localparam logic [6:0] A_RESULTS = 7'h20;   // 6 x int24 LE + dump count: 0x20..0x32
     localparam logic [6:0] A_DUMPCNT = 7'h32;
 
     logic [7:0] dump_cnt = '0;
@@ -71,13 +76,17 @@ module regs (
     logic        slew_pend   = 1'b0;
     logic        slew_load_r = 1'b0;
 
+    logic active_d = 1'b0;
+    always_ff @(posedge clk) active_d <= active;
+    wire frame_end = active_d && !active;
+    
     // separate block: slew_pend must only be driven from one place
     always_ff @(posedge clk) begin
         slew_load_r <= 1'b0;
         if (frame_end) begin
             slew_load_r <= slew_pend;
             slew_pend   <= 1'b0;
-        end else if (wr && addr == 7'h1B) begin
+        end else if (wr && addr == A_SLEW + 7'd1) begin
             slew_pend <= 1'b1;
         end
     end
@@ -85,26 +94,24 @@ module regs (
     always_ff @(posedge clk) begin
         if (wr) begin
             case (addr)
-                7'h10: sh_ctrl        <= rx_byte;
-                7'h11: sh_prn         <= rx_byte[5:0];
-                7'h12: sh_code[7:0]   <= rx_byte;
-                7'h13: sh_code[15:8]  <= rx_byte;
-                7'h14: sh_code[23:16] <= rx_byte;
-                7'h15: sh_code[31:24] <= rx_byte;
-                7'h16: sh_carr[7:0]   <= rx_byte;
-                7'h17: sh_carr[15:8]  <= rx_byte;
-                7'h18: sh_carr[23:16] <= rx_byte;
-                7'h19: sh_carr[31:24] <= rx_byte;
-                7'h1A: sh_slew[7:0]   <= rx_byte;
-                7'h1B: sh_slew[15:8]  <= rx_byte;
+                A_CH_CTRL:        sh_ctrl        <= rx_byte;
+                A_CH_PRN:         sh_prn         <= rx_byte[5:0];
+                A_CODE + 7'd0:    sh_code[7:0]   <= rx_byte;
+                A_CODE + 7'd1:    sh_code[15:8]  <= rx_byte;
+                A_CODE + 7'd2:    sh_code[23:16] <= rx_byte;
+                A_CODE + 7'd3:    sh_code[31:24] <= rx_byte;
+                A_CARR + 7'd0:    sh_carr[7:0]   <= rx_byte;
+                A_CARR + 7'd1:    sh_carr[15:8]  <= rx_byte;
+                A_CARR + 7'd2:    sh_carr[23:16] <= rx_byte;
+                A_CARR + 7'd3:    sh_carr[31:24] <= rx_byte;
+                A_SLEW + 7'd0:    sh_slew[7:0]   <= rx_byte;
+                A_SLEW + 7'd1:    sh_slew[15:8]  <= rx_byte;
                 default: ;
             endcase
         end
     end
 
-    logic active_d = 1'b0;
-    always_ff @(posedge clk) active_d <= active;
-    wire frame_end = active_d && !active;
+
 
     logic        ch_reset_r = 1'b1;              // held in reset until the MCU releases it
     logic [5:0]  ch_prn_r   = '0;
