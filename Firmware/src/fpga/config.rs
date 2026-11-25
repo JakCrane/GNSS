@@ -141,6 +141,47 @@ impl Fpga {
         self.read_regs(0x32, &mut c)?;
         Ok(c[0])
     }
+
+    /// Delay the local code by `samples` (1 sample = 1/16 chip).
+    pub fn slew(&mut self, samples: u16) -> Result<(), spi::Error> {
+        self.write_regs(0x1A, &samples.to_le_bytes())
+    }
+
+    pub async fn wait_dumps(&mut self, n: u8) -> Result<(), spi::Error> {
+        let start = self.dump_count()?;
+        while self.dump_count()?.wrapping_sub(start) < n {
+            Timer::after_micros(100).await;
+        }
+        Ok(())
+    }
+
+    /// Step through the whole code in half-chip steps, measuring prompt power
+    /// at each. Leaves the channel at the best position.
+    /// Returns (best step, best power, mean power).
+    pub async fn code_search(&mut self, dwell: u8) -> Result<(u16, u64, u64), spi::Error> {
+        const STEP: u16 = 8;                   // half a chip
+        const N: u16 = 16368 / STEP;           // 2046 steps = one full code period
+        let mut best = (0u16, 0u64);
+        let mut total = 0u64;
+
+        for k in 1..=N {
+            self.slew(STEP)?;
+            self.wait_dumps(1).await?;         // this dump straddled the slew: skip it
+            let mut p = 0u64;
+            for _ in 0..dwell {
+                self.wait_dumps(1).await?;
+                let c = self.read_correlators()?;
+                p += (c.ip as i64 * c.ip as i64 + c.qp as i64 * c.qp as i64) as u64;
+            }
+            total += p;
+            if p > best.1 { best = (k, p); }
+        }
+
+        // N steps took us a full period round, back to the start; slew forward to the best one
+        self.slew(best.0 * STEP)?;
+        self.wait_dumps(2).await?;
+        Ok((best.0, best.1, total / N as u64))
+    }
     
 }
 

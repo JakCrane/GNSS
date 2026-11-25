@@ -10,8 +10,20 @@ module channel (
     output logic                early,
     output logic                prompt, // now (as in not late not early)
     output logic                late,
-    output logic                epoch
+    output logic                epoch,
+    input  logic [15:0]         slew,
+    input  logic                slew_load
 );
+
+    logic [15:0] slew_left = '0;
+
+    always_ff @(posedge clk) begin
+        if (slew_load) begin           
+            slew_left <= slew;
+        end else if (slew_left != 0) begin
+            slew_left <= slew_left - 1'b1;
+        end 
+    end
 
     logic chip_en;
     logic chip;
@@ -19,11 +31,12 @@ module channel (
 
     logic [15:0] chip_array = '0;
     code_nco nco (
-        .clk (clk),
-        .reset (reset),
-        .fword (code_fword),
+        .clk     (clk),
+        .reset   (reset),
+        .fword   (code_fword),
         .chip_en (chip_en),
-        .phase (phase)
+        .phase   (phase),
+        .enable  (slew_left == 0)
     );
 
     ca_gen ca (

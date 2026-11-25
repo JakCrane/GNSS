@@ -95,6 +95,17 @@ async fn main(spawner: Spawner) {
                     let _ = usb::write_str(&mut tx, &l).await;
                 }
                 Either::First(Cmd::Capture) => { dump_capture(&mut fpga, &mut tx).await }
+                Either::First(Cmd::Search) => {
+                    let mut l: String<96> = String::new();
+                    match fpga.code_search(2).await {
+                        Ok((k, peak, mean)) => {
+                            let _ = write!(l, "search: step {} peak {} mean {} ratio {:.1}\r\n",
+                                        k, peak, mean, peak as f64 / mean.max(1) as f64);
+                        }
+                        Err(_) => { let _ = l.push_str("search: spi error\r\n"); }
+                    }
+                    let _ = usb::write_str(&mut tx, &l).await;
+                }
                 Either::Second(()) => {
                     if let Ok(c) = fpga.read_correlators() {
                         let mut l: String<128> = String::new();

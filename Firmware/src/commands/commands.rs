@@ -29,6 +29,7 @@ pub async fn run(mut rx: Receiver<'static, UsbDriver>) -> ! {
 pub enum Cmd {
     SetChannel { prn: u8, doppler: f64 },
     Capture,
+    Search,
 }
 
 pub static CMDS: Channel<CriticalSectionRawMutex, Cmd, 4> = Channel::new();
@@ -48,6 +49,7 @@ async fn handle(line: &str) {
             }
         }
         Some("cap") => CMDS.send(Cmd::Capture).await,
+        Some("srch") => CMDS.send(Cmd::Search).await,
         _ => {}
     }
 }

@@ -13,7 +13,8 @@ module carrier_mixer (
         .reset   (reset),
         .fword   (carrier_fword),     // nominal 2^30 = 32'h4000_0000 → 4.092 MHz
         .chip_en (),                   // not needed: leave unconnected
-        .phase   (carr_phase)
+        .phase   (carr_phase),
+        .enable  (1'b1)
     );
 
     logic signed [3:0] lo_cos;

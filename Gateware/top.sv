@@ -26,7 +26,7 @@ module top (
     logic busy;
     logic [7:0] rdata;
 
-
+    logic [15:0] ch_slew; logic ch_slew_load; 
 
 
     sync2  #(.INIT(1'b0)) ld_sync_i ( // parameter redundant for now but for readability
@@ -81,7 +81,9 @@ module top (
         .early(), 
         .prompt(), 
         .late(), 
-        .epoch()          
+        .epoch(),
+        .slew(ch_slew),
+        .slew_load(ch_slew_load)
     );
 
     logic cap_start, cap_next;
@@ -107,7 +109,9 @@ module top (
         .ch_code_fword  (ch_code_fword),
         .ch_carr_fword  (ch_carr_fword),
         .dump           (dump),
-        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql)
+        .ie(ie), .qe(qe), .ip(ip), .qp(qp), .il(il), .ql(ql),
+        .ch_slew        (ch_slew),
+        .ch_slew_load   (ch_slew_load)
     );
 
     capture cap (

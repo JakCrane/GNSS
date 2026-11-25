@@ -20,7 +20,10 @@ module regs (
     output logic [31:0] ch_code_fword,
     output logic [31:0] ch_carr_fword,
     input  logic        dump,
-    input  logic signed [19:0] ie, qe, ip, qp, il, ql
+    input  logic signed [19:0] ie, qe, ip, qp, il, ql,
+
+    output logic [15:0] ch_slew,
+    output logic        ch_slew_load
 );
 
     localparam logic [6:0] A_ID      = 7'h00;
@@ -64,11 +67,26 @@ module regs (
     logic [31:0] sh_code = 32'h1000_0000;      // nominal 1.023 MHz
     logic [31:0] sh_carr = 32'h4000_0000;      // nominal 4.092 MHz
 
+    logic [15:0] sh_slew     = '0;
+    logic        slew_pend   = 1'b0;
+    logic        slew_load_r = 1'b0;
+
+    // separate block: slew_pend must only be driven from one place
+    always_ff @(posedge clk) begin
+        slew_load_r <= 1'b0;
+        if (frame_end) begin
+            slew_load_r <= slew_pend;
+            slew_pend   <= 1'b0;
+        end else if (wr && addr == 7'h1B) begin
+            slew_pend <= 1'b1;
+        end
+    end
+
     always_ff @(posedge clk) begin
         if (wr) begin
             case (addr)
-                7'h10: sh_ctrl       <= rx_byte;
-                7'h11: sh_prn        <= rx_byte[5:0];
+                7'h10: sh_ctrl        <= rx_byte;
+                7'h11: sh_prn         <= rx_byte[5:0];
                 7'h12: sh_code[7:0]   <= rx_byte;
                 7'h13: sh_code[15:8]  <= rx_byte;
                 7'h14: sh_code[23:16] <= rx_byte;
@@ -77,6 +95,8 @@ module regs (
                 7'h17: sh_carr[15:8]  <= rx_byte;
                 7'h18: sh_carr[23:16] <= rx_byte;
                 7'h19: sh_carr[31:24] <= rx_byte;
+                7'h1A: sh_slew[7:0]   <= rx_byte;
+                7'h1B: sh_slew[15:8]  <= rx_byte;
                 default: ;
             endcase
         end
@@ -133,5 +153,7 @@ module regs (
 
     always_ff @(posedge clk) if (dump) dump_cnt <= dump_cnt + 1'b1;
 
+    assign ch_slew      = sh_slew;
+    assign ch_slew_load = slew_load_r;
 
 endmodule

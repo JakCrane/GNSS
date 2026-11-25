@@ -3,7 +3,8 @@ module code_nco (
     input  logic        reset,       // phase back to 0
     input  logic [31:0] fword,       // chip rate: fword = f_chip / f_clk × 2^32 (large as it treats a large int like a decimal with many sig fig)
     output logic        chip_en,     // 1-clock pulse each time a chip boundary is crossed
-    output logic [31:0] phase        // where we are within the current chip (0 → 2^32)
+    output logic [31:0] phase,       // where we are within the current chip (0 → 2^32)
+    input  logic        enable
 );
     // One whole chip = 2^32 units (needs 33 bits to hold).
     localparam logic [32:0] ONE_CHIP = 33'h1_0000_0000;
@@ -23,14 +24,16 @@ module code_nco (
     always_ff @(posedge clk) begin
         if (reset) begin
             phase_now <= '0;
-        end else if (past_end_of_chip) begin
-            phase_now <= phase_next - ONE_CHIP;     // start the next chip, keep the leftover
-        end else begin
-            phase_now <= phase_next[31:0];          // still inside this chip
+        end else if (enable) begin
+            if (past_end_of_chip) begin
+                phase_now <= phase_next - ONE_CHIP;     // start the next chip, keep the leftover
+            end else begin
+                phase_now <= phase_next[31:0];          // still inside this chip
+            end
         end
     end
 
-    assign chip_en = past_end_of_chip;
+    assign chip_en = enable && past_end_of_chip;
     assign phase   = phase_now;
 
 endmodule

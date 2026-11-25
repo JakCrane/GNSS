@@ -7,15 +7,22 @@ can be post-processed later:
     runs/YYYYmmdd_HHMMSS/
         capture.bin      raw 2-bit samples (same format as capture.py)
         acquisition.txt  PRN / ratio / Doppler / code phase table
+        search.txt       code-phase search result for each PRN tried
         track.csv        one row per correlator line from the board
+
+After acquisition it points the channel at each acquired PRN (strongest
+first), runs the board's code-phase search ("srch"), and logs the first one
+whose search peak clearly beats the noise.
 
 Usage:
     python3 track.py [port] [--prn N] [--doppler HZ] [--secs S] [--out DIR]
+                     [--no-search]
 
     --prn N       track this PRN instead of the strongest one found
     --doppler HZ  use this Doppler instead of the acquired one (needs --prn)
     --secs S      stop logging after S seconds (default: until Ctrl-C)
     --out DIR     parent folder for runs (default: runs)
+    --no-search   skip the code-phase search (firmware without "srch")
 """
 import argparse
 import csv
@@ -106,28 +113,54 @@ def acquire_all(path: str, report_path: str):
     return [(prn, refined[prn], ratio) for prn, ratio, _, _ in acquired]
 
 
-# ---------------------------------------------------------------- tracking log
-def track(s: serial.Serial, prn: int, doppler: float, csv_path: str, secs):
+# ---------------------------------------------------------------- board commands
+def wait_for(s: serial.Serial, prefix: str, timeout: float):
+    """Read lines until one starts with `prefix`; return it, or None on timeout."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        line = s.readline().decode(errors="ignore").strip()
+        if line.startswith(prefix):
+            return line
+    return None
+
+
+def point(s: serial.Serial, prn: int, doppler: float) -> bool:
+    """Set the channel's PRN and Doppler. True once the board confirms."""
     s.reset_input_buffer()
     s.write(f"ch {prn} {doppler:.1f}\r\n".encode())
+    line = wait_for(s, "ch:", 3)
+    if line:
+        print(line)
+    return line is not None
 
-    confirmed = False
+
+def search(s: serial.Serial):
+    """Run the code-phase search on the board. Returns (ratio, raw line) or (None, None)."""
+    s.write(b"srch\r\n")
+    print("searching code phase (~10 s)...")
+    line = wait_for(s, "search:", SEARCH_TIMEOUT)
+    if line is None:
+        return None, None
+    print(line)
+    m = re.search(r"ratio\s+([\d.]+)", line)
+    return (float(m.group(1)) if m else None), line
+
+
+# ---------------------------------------------------------------- tracking log
+def track(s: serial.Serial, prn: int, doppler: float, csv_path: str, secs):
     t0 = time.time()
     with open(csv_path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["t_s", "unix_time", "prn", "doppler_hz",
                     "ie", "qe", "ip", "qp", "il", "ql", "dumps"])
-        print(f"\ntracking PRN {prn} at {doppler:+.1f} Hz  (Ctrl-C to stop)")
+        stop = "Ctrl-C to stop" if secs is None else f"{secs:.0f} s, or Ctrl-C"
+        print(f"\nlogging PRN {prn} at {doppler:+.1f} Hz  ({stop})")
         print("    t      |E|     |P|     |L|   P phase")
         try:
             while secs is None or time.time() - t0 < secs:
                 line = s.readline().decode(errors="ignore").strip()
-                if line.startswith("ch:"):
-                    confirmed = True              # rows before this are the old setting
-                    print(line)
-                    continue
                 m = CORR_RE.search(line)
-                if not m or not confirmed:
+                if not m:
                     continue
                 ie, qe, ip, qp, il, ql, d = map(int, m.groups())
                 now = time.time()
@@ -138,11 +171,13 @@ def track(s: serial.Serial, prn: int, doppler: float, csv_path: str, secs):
                       f"{np.hypot(il, ql):7.0f}   {np.degrees(np.arctan2(qp, ip)):+6.0f}")
         except KeyboardInterrupt:
             pass
-    if not confirmed:
-        print("warning: board never echoed 'ch:' - is the firmware up to date?")
 
 
 # ---------------------------------------------------------------- main
+SEARCH_TIMEOUT = 60      # s; a full search should take ~10 s
+SEARCH_MIN_RATIO = 8.0   # noise alone gives ~4-5
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("port", nargs="?", default="/dev/ttyACM0")
@@ -150,6 +185,8 @@ def main() -> None:
     ap.add_argument("--doppler", type=float)
     ap.add_argument("--secs", type=float)
     ap.add_argument("--out", default="runs")
+    ap.add_argument("--no-search", action="store_true",
+                    help="skip the code-phase search (old firmware)")
     args = ap.parse_args()
     if args.doppler is not None and args.prn is None:
         ap.error("--doppler needs --prn")
@@ -170,20 +207,46 @@ def main() -> None:
         print("acquiring (all 32 PRNs)...")
         found = acquire_all(cap_path, os.path.join(run_dir, "acquisition.txt"))
 
+        # Candidates to try, best first.
         if args.prn is not None:
-            prn = args.prn
             if args.doppler is not None:
-                doppler = args.doppler
+                candidates = [(args.prn, args.doppler)]
             else:
-                match = [d for p, d, _ in found if p == prn]
+                match = [(p, d) for p, d, _ in found if p == args.prn]
                 if not match:
-                    sys.exit(f"PRN {prn} not acquired; give --doppler to force it")
-                doppler = match[0]
+                    sys.exit(f"PRN {args.prn} not acquired; give --doppler to force it")
+                candidates = match
         else:
             if not found:
                 sys.exit("no satellites acquired - capture saved, try again with a clearer sky view")
-            prn, doppler, ratio = found[0]
-            print(f"\nstrongest: PRN {prn} (ratio {ratio:.2f})")
+            candidates = [(p, d) for p, d, _ in found]
+
+        # Point + search each candidate until one gives a clear code peak.
+        chosen = None
+        with open(os.path.join(run_dir, "search.txt"), "w") as log:
+            for prn, doppler in candidates:
+                print(f"\nPRN {prn} at {doppler:+.1f} Hz")
+                if not point(s, prn, doppler):
+                    sys.exit("board never echoed 'ch:' - is the firmware up to date?")
+                if args.no_search:
+                    chosen = (prn, doppler)
+                    break
+                ratio, line = search(s)
+                log.write(f"PRN {prn} doppler {doppler:+.1f}: {line or 'no reply'}\n")
+                if ratio is None:
+                    print("no 'search:' reply - firmware without srch? (use --no-search)")
+                    continue
+                if ratio >= SEARCH_MIN_RATIO:
+                    chosen = (prn, doppler)
+                    break
+                print(f"ratio {ratio:.1f} < {SEARCH_MIN_RATIO}: no clear peak, trying next")
+
+        if chosen is None:
+            prn, doppler = candidates[0]
+            print(f"\nno candidate gave a clear peak; logging PRN {prn} anyway")
+            point(s, prn, doppler)
+        else:
+            prn, doppler = chosen
 
         track(s, prn, doppler, os.path.join(run_dir, "track.csv"), args.secs)
 
