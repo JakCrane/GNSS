@@ -22,7 +22,7 @@ while the loops are closed.
 
 Usage:
     python3 track.py [port] [--prn N] [--doppler HZ] [--secs S] [--out DIR]
-                     [--no-search] [--open-loop] [--pll [--dll-secs S]] [--flip-csign]
+                     [--no-search] [--open-loop] [--no-pll] [--dll-secs S] [--flip-csign]
 
     --prn N       track this PRN instead of the strongest one found
     --doppler HZ  use this Doppler instead of the acquired one (needs --prn)
@@ -30,12 +30,15 @@ Usage:
     --out DIR     parent folder for runs (default: runs)
     --no-search   skip the code-phase search (firmware without "srch")
     --open-loop   don't close the loops (old open-loop behaviour)
-    --pll         close the carrier loop as well (board's FLL -> Costas PLL)
-    --dll-secs S  with --pll: DLL-only for S seconds first (recording for pll.py),
-                  then switch to DLL+PLL in the same run
+    --dll-secs S  DLL-only for S seconds first (recording for pll.py), then
+                  switch to DLL+PLL in the same run. Default 300; 0 = PLL at once
+    --no-pll      DLL only for the whole run (carrier loop never closed)
     --flip-csign  flip the carrier loop's sign first (if the FLL ran away last time)
 
-Typical field run:  python3 track.py --pll --dll-secs 300
+Default (field run): python3 track.py
+    = capture, acquire, search, 5 min DLL-only recording, then live DLL+PLL
+      until Ctrl-C. If the PLL runs away, re-run with:
+      python3 track.py --dll-secs 10 --flip-csign
 """
 import argparse
 import csv
@@ -328,10 +331,12 @@ def main() -> None:
                     help="skip the code-phase search (old firmware)")
     ap.add_argument("--open-loop", action="store_true",
                     help="don't send trk: leave the NCOs fixed")
-    ap.add_argument("--pll", action="store_true",
-                    help="close the carrier loop too (trk pll)")
-    ap.add_argument("--dll-secs", type=float,
-                    help="with --pll: record this long DLL-only first, then switch to DLL+PLL")
+    ap.add_argument("--pll", action=argparse.BooleanOptionalAction, default=True,
+                    help="close the carrier loop after the DLL-only stage (default on; "
+                         "--no-pll = DLL only for the whole run)")
+    ap.add_argument("--dll-secs", type=float, default=300.0,
+                    help="DLL-only recording before switching to DLL+PLL, s (default 300; "
+                         "0 = PLL straight away)")
     ap.add_argument("--flip-csign", action="store_true",
                     help="flip the carrier loop sign before tracking (if the FLL runs away)")
     args = ap.parse_args()
