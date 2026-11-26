@@ -1,0 +1,4 @@
+ch0 PRN 32 doppler -741.6: search: n=0 step 1008 peak 66138306 mean 1789284 ratio 37.0
+ch1 PRN 2 doppler -958.2: search: n=1 step 1802 peak 55157540 mean 1750934 ratio 31.5
+ch2 PRN 8 doppler -3285.1: search: n=2 step 398 peak 120776926 mean 1883082 ratio 64.1
+ch3 PRN 1 doppler +672.2: search: n=3 step 1838 peak 20629172 mean 1791948 ratio 11.5

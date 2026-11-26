@@ -1,0 +1,25 @@
+======== RUN 1: /home/jack/Documents/GNSS/Sims/runs/20261125_235549
+ch PRN search |   DLL: |P| start->end held | PLL locked   f start->end (Hz) | data gaps (dll/pll)
+ 0  32  111.5 |       876 ->    9340  yes |       100%    -955.1-> -1069.5 | 755/300040 / 0/180000
+ 1   8   58.1 |      2308 ->    7295  yes |        94%   -3353.2-> -3402.2 | 505/300030 / 0/179990
+ 2   1   22.8 |       809 ->    4669  yes |       100%    +537.5->  +457.7 | 253/300020 / 1/179990
+ 3   2   39.1 |      6822 ->    4684  yes |       100%   -1063.2-> -1129.1 | 0/300000 / 1/179990
+
+ch0  PLL: locked (cos2phi > 0.6) 71% of the time after the FLL stage; loop frequency -61.49 -> +1685.56 Hz (200 ms averages)
+ch0  C/N0 estimate while locked: 47.1 dB-Hz
+ch0  frames: 0 subframes passed parity
+ch1  PLL: locked (cos2phi > 0.6) 100% of the time after the FLL stage; loop frequency +12.16 -> +75.17 Hz (200 ms averages)
+ch1  C/N0 estimate while locked: 44.1 dB-Hz
+ch1  frames: 48 subframes passed parity
+ch2  PLL: locked (cos2phi > 0.6) 91% of the time after the FLL stage; loop frequency +7.06 -> +1117.68 Hz (200 ms averages)
+ch2  C/N0 estimate while locked: 44.5 dB-Hz
+ch2  frames: 44 subframes passed parity
+ch3  PLL: locked (cos2phi > 0.6) 100% of the time after the FLL stage; loop frequency +4.09 -> +90.91 Hz (200 ms averages)
+ch3  C/N0 estimate while locked: 43.5 dB-Hz
+ch3  frames: 49 subframes passed parity
+ch1  subframe IDs [4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1]  <-- 1,2,3 in a row: ephemeris available
+ch1  GPS time of last subframe: Thu 00:01:36
+ch2  subframe IDs [3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1]  <-- 1,2,3 in a row: ephemeris available
+ch2  GPS time of last subframe: Thu 00:01:36
+ch3  subframe IDs [3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1]  <-- 1,2,3 in a row: ephemeris available
+ch3  GPS time of last subframe: Thu 00:01:36
